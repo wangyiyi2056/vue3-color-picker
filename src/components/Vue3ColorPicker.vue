@@ -7,7 +7,7 @@
       @onDeleteColor="deleteColor" @onChangeInputType="handleChangeInputType"
       @on-picker-change-mode="handleChangePickerMode" />
 
-    <PickerWrap @onEventStart="handlePickerStartOnMouseDown" />
+    <PickerWrap @onMouseDown="handlePickerStartOnMouseDown" />
 
     <div v-if="PickerMode == 'gradient'" style="
         display: flex;
