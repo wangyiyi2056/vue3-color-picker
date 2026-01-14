@@ -66,6 +66,55 @@
 
         <OpacityBar v-if="showAlpha" v-model="opacity" @onInput="setOpacity" />
       </div>
+      <div class="ck-cp-sketch-color-wrap">
+        <div
+          class="ck-cp-sketch-active-color"
+          :style="{ background: props.modelValue }"
+        ></div>
+        <div
+          class="ck-cp-checkerboard"
+          style="
+            background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAADBJREFUOE9jfPbs2X8GPEBSUhKfNAPjqAHDIgz+//+PNx08f/4cfzoYNYCBceiHAQC5flV5JzgrxQAAAABJRU5ErkJggg==');
+          "
+        ></div>
+        <div
+          class="copy-icon"
+          @click="handleCopyValue"
+          @mouseout="isCopy = false"
+        >
+          <svg
+            v-if="!isCopy"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="#000000"
+            class="bi bi-copy"
+            viewBox="0 0 20 20"
+            id="Copy--Streamline-Bootstrap"
+            height="16"
+            width="16"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M5 2.5a2.5 2.5 0 0 1 2.5 -2.5h10a2.5 2.5 0 0 1 2.5 2.5v10a2.5 2.5 0 0 1 -2.5 2.5H7.5a2.5 2.5 0 0 1 -2.5 -2.5zm2.5 -1.25a1.25 1.25 0 0 0 -1.25 1.25v10a1.25 1.25 0 0 0 1.25 1.25h10a1.25 1.25 0 0 0 1.25 -1.25V2.5a1.25 1.25 0 0 0 -1.25 -1.25zM2.5 6.25a1.25 1.25 0 0 0 -1.25 1.25v10a1.25 1.25 0 0 0 1.25 1.25h10a1.25 1.25 0 0 0 1.25 -1.25v-1.25h1.25v1.25a2.5 2.5 0 0 1 -2.5 2.5H2.5a2.5 2.5 0 0 1 -2.5 -2.5V7.5a2.5 2.5 0 0 1 2.5 -2.5h1.25v1.25z"
+              stroke-width="1"
+            ></path>
+          </svg>
+          <svg
+            v-else
+            xmlns="http://www.w3.org/2000/svg"
+            fill="#000000"
+            class="bi bi-check2"
+            viewBox="0 0 20 20"
+            id="Check2--Streamline-Bootstrap"
+            height="16"
+            width="16"
+          >
+            <path
+              d="M17.3175 4.5575a0.625 0.625 0 0 1 0 0.885l-8.75 8.75a0.625 0.625 0 0 1 -0.885 0l-4.375 -4.375a0.625 0.625 0 1 1 0.885 -0.885L8.125 12.866249999999999l8.3075 -8.30875a0.625 0.625 0 0 1 0.885 0"
+              stroke-width="1"
+            ></path>
+          </svg>
+        </div>
+      </div>
     </div>
 
     <div v-show="false" id="ck-cp-target-background"></div>
@@ -110,1971 +159,1956 @@
         v-model="colorList.find((item) => item.select == true)!.a"
         @update:model-value="(value) => handleRGBAInput(value, 'a')" />
     </div>
-
-    <HistoryColorList v-if="showColorList" :color-list-count="colorListCount" :hex-val="hexVal"
-      @color-item-click="handleColorItemOnClick" :iconClasses="iconClasses" :title="local.colorPalette" />
-    <div v-if="showButtons" class="ck-cp-buttons">
-      <slot name="buttons" :save="handleSave" :cancel="handleCancel">
-        <button class="ck-cp-buttons__button ck-cp-buttons__button--save" type="button" @click="handleSave">
-          {{ local.btnSaveLabel }}
-        </button>
-        <button class="ck-cp-buttons__button ck-cp-buttons__button--cancel" type="button" @click="handleCancel">
-          {{ local.btnCancelLabel }}
-        </button>
-      </slot>
-    </div>
+    <IntrinsicColorList
+      v-if="showIntrinsics"
+      :intrinsic-color-list="intrinsicColorList"
+      @color-item-click="handleColorItemOnClick"
+    />
+    <HistoryColorList
+      v-if="showColorList"
+      :color-list-count="colorListCount"
+      :hex-val="hexVal"
+      @color-item-click="handleColorItemOnClick"
+      :iconClasses="iconClasses"
+      :title="local.colorPalate"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive, provide, watch, nextTick } from "vue";
+  import { onMounted, ref, reactive, provide, watch } from "vue";
 
-import PickerMenu from "./PickerMenu.vue";
-import GradientBar from "./GradientBar.vue";
-import PickerWrap from "./PickerWrap.vue";
-import PickerHue from "./PickerHue.vue";
-import OpacityBar from "./OpacityBar.vue";
-import InputNumber from "./InputNumber.vue";
-import InputHex from "./InputHex.vue";
-import {
-  hex8ToRgba,
-  hexToRgb,
-  hsl2Hex,
-  hslToRgb,
-  parseRgb,
-  parseRgba,
-  rgb2Hex,
-  rgbToHsl,
-  rgbToHue,
-  rgbaToHex8,
-  rgbToHsv,
-  hsvToRgb,
-  hsvToHsl,
-  cmykToRgb,
-  rgbToCmyk,
-} from "../core/helper/converters";
-import {
-  Color,
-  RGB,
-  RGBA,
-  Mode,
-  ColorType,
-  Theme,
-  InputType,
-  Local,
-  IconClasses,
-  GradientMode,
-  ModelValue,
-} from "../core/types/types.ts";
-import HistoryColorList from "./HistoryColorList.vue";
+  import PickerMenu from "./PickerMenu.vue";
+  import GradientBar from "./GradientBar.vue";
+  import PickerWrap from "./PickerWrap.vue";
+  import PickerHue from "./PickerHue.vue";
+  import OpacityBar from "./OpacityBar.vue";
+  import InputNumber from "./InputNumber.vue";
+  import InputHex from "./InputHex.vue";
+  import {
+    hex8ToRgba,
+    hexToRgb,
+    hsl2Hex,
+    hslToRgb,
+    parseRgb,
+    parseRgba,
+    rgb2Hex,
+    rgbToHsl,
+    rgbToHue,
+    rgbaToHex8,
+    rgbToHsv,
+    hsvToRgb,
+    hsvToHsl,
+    cmykToRgb,
+    rgbToCmyk,
+  } from "../core/helper/converters";
+  import {
+    Color,
+    RGB,
+    RGBA,
+    Mode,
+    ColorType,
+    Theme,
+    InputType,
+    Local,
+    IconClasses,
+  } from "../core/types/types.ts";
+  import HistoryColorList from "./HistoryColorList.vue";
+  import IntrinsicColorList from "./IntrinsicColorList.vue";
 
-const props = defineProps({
-  modelValue: { default: "", type: String as () => ModelValue },
-  mode: {
-    default: "gradient",
-    type: String as () => Mode,
-  },
-  type: { default: "HEX8", type: String as () => ColorType },
-  inputType: { default: "RGB", type: String as () => InputType },
-  theme: { default: "light", type: String as () => Theme },
-  colorListCount: { default: 15, type: Number },
-  showColorList: { default: true, type: Boolean },
-  showEyeDrop: { default: true, type: Boolean },
-  showPickerMode: { default: true, type: Boolean },
-  showAlpha: { default: true, type: Boolean },
-  showInputMenu: { default: true, type: Boolean },
-  showInputSet: { default: true, type: Boolean },
-  disabled: { default: false, type: Boolean },
-  gradientMode: { default: "linear", type: String as () => GradientMode },
-  local: {
-    default: {
-      angle: "",
-      positionX: "",
-      positionY: "",
-      solid: "",
-      gradient: "",
-      linear: "",
-      radial: "",
-      colorPalette: "",
-      btnSaveLabel: "Save",
-      btnCancelLabel: "Cancel",
+  const props = defineProps({
+    modelValue: { default: "" },
+    mode: {
+      default: "gradient",
+      type: String as () => Mode,
     },
-    type: Object as () => Local,
-  },
-  iconClasses: {
-    default: {
-      linear: "",
-      radial: "",
-      ruler: "",
-      eyeDroper: "",
-      inputMenu: "",
-      save: "",
-      delete: "",
+    type: { default: "HEX8", type: String as () => ColorType },
+    inputType: { default: "RGB", type: String as () => InputType },
+    theme: { default: "light", type: String as () => Theme },
+    colorListCount: { default: 15, type: Number },
+    intrinsicColorList: {
+      default: ["#ffffff00", "#191e73c9", "#ff0000"],
+      type: Array as () => string[],
     },
-    type: Object as () => IconClasses,
-  },
-  showButtons: {
-    type: Boolean,
-    default: false,
-  },
-});
+    showIntrinsics: { default: true, type: Boolean },
+    showColorList: { default: true, type: Boolean },
+    showEyeDrop: { default: true, type: Boolean },
+    showPickerMode: { default: true, type: Boolean },
+    showAlpha: { default: true, type: Boolean },
+    showInputMenu: { default: true, type: Boolean },
+    showInputSet: { default: true, type: Boolean },
+    disabled: { default: false, type: Boolean },
+    local: {
+      default: {
+        angle: "",
+        positionX: "",
+        positionY: "",
+        solid: "",
+        gradient: "",
+        linear: "",
+        radial: "",
+        colorPalate: "",
+      },
+      type: Object as () => Local,
+    },
+    iconClasses: {
+      default: {
+        linear: "",
+        radial: "",
+        ruler: "",
+        eyeDroper: "",
+        inputMenu: "",
+        save: "",
+        delete: "",
+      },
+      type: Object as () => IconClasses,
+    },
+  });
 
-const pickerTemplateRef = ref<HTMLElement | null>(null);
+  const pickerTemplateRef = ref<HTMLElement | null>(null);
 
-const emits = defineEmits<{
-  (e: "update:modelValue", value: string): void;
-  (e: "onChange", value: string): void;
-  (e: "onSave", value: string): void;
-  (e: "onCancel", value: string): void;
-}>();
+  const emits = defineEmits<{
+    (e: "update:modelValue", value: string): void;
+  }>();
 
-const PickerMode = ref(props.mode);
+  const PickerMode = ref(props.mode);
 
-const localValue = ref(props.modelValue);
-const emittedValue = ref(props.modelValue);
+  const emittedValue = ref(props.modelValue);
 
-const emitUpdateModelValue = (value: string) => {
-  localValue.value = value;
-  emits("onChange", value);
-  if (!props.showButtons) {
+  const emitUpdateModelValue = (value: string) => {
     emittedValue.value = value;
     emits("update:modelValue", value);
-  }
-};
+  };
 
-const colorList = ref<Color[]>([
-  { id: 1, r: 68, g: 71, b: 119, a: 100, percent: 0, hue: 0, select: true },
-  { id: 2, r: 0, g: 0, b: 255, a: 100, percent: 100, hue: 0, select: false },
-]);
+  const colorList = ref<Color[]>([
+    { id: 1, r: 68, g: 71, b: 119, a: 100, percent: 0, hue: 0, select: true },
+    { id: 2, r: 0, g: 0, b: 255, a: 100, percent: 100, hue: 0, select: false },
+  ]);
 
-const isEyeDropperUsing = ref(false);
-const gradientType = ref(props.gradientMode);
-const gradientAngle = reactive({
-  angle: 90,
-  percentageX: 50,
-  percentageY: 50,
-});
+  const isEyeDropperUsing = ref(false);
+  const gradientType = ref("linear");
+  const gradientAngle = reactive({
+    angle: 90,
+    percentageX: 50,
+    percentageY: 50,
+  });
 
-const hexVal = ref("");
-const inputType = ref(props.inputType);
-const isReady = ref(false);
-const opacitySlider = ref();
-const gradientBar = ref();
-const canvas = ref();
-const pickerWrap = ref();
-const pickerPointer = ref();
-const HSL = reactive({
-  h: 0,
-  s: 0,
-  l: 0,
-});
-const HSV = reactive({
-  h: 0,
-  s: 0,
-  v: 0,
-});
+  const hexVal = ref("");
+  const inputType = ref(props.inputType);
+  const isReady = ref(false);
+  const opacitySlider = ref();
+  const gradientBar = ref();
+  const canvas = ref();
+  const pickerWrap = ref();
+  const pickerPointer = ref();
+  const HSL = reactive({
+    h: 0,
+    s: 0,
+    l: 0,
+  });
+  const HSV = reactive({
+    h: 0,
+    s: 0,
+    v: 0,
+  });
 
-const CMYK = reactive({
-  c: 0,
-  m: 0,
-  y: 0,
-  k: 0,
-});
+  const CMYK = reactive({
+    c: 0,
+    m: 0,
+    y: 0,
+    k: 0,
+  });
+  const isCopy = ref(false);
+  provide("gradientBar", gradientBar);
+  provide("canvas", canvas);
+  provide("pickerWrap", pickerWrap);
+  provide("pickerPointer", pickerPointer);
+  provide("opacitySlider", opacitySlider);
 
-provide("gradientBar", gradientBar);
-provide("canvas", canvas);
-provide("pickerWrap", pickerWrap);
-provide("pickerPointer", pickerPointer);
-provide("opacitySlider", opacitySlider);
+  let divX = 0;
+  let divY = 0;
+  let offsetX = 0;
+  let offsetY = 0;
+  let BottomPoint = 0;
+  let RightPoint = 0;
 
-let divX = 0;
-let divY = 0;
-let offsetX = 0;
-let offsetY = 0;
-let BottomPoint = 0;
-let RightPoint = 0;
+  const handlePickerStartOnMouseDown = (event: MouseEvent) => {
+    if (!pickerWrap.value || !pickerPointer.value) return;
 
-const handlePickerStartOnMouseDown = (event: MouseEvent | TouchEvent) => {
-  if (!pickerWrap.value || !pickerPointer.value) return;
+    BottomPoint =
+      pickerWrap.value.offsetHeight - pickerPointer.value.offsetHeight;
+    RightPoint = pickerWrap.value.offsetWidth - pickerPointer.value.offsetWidth;
 
-  const isTouchEvent = "TouchEvent" in window && event instanceof TouchEvent;
+    offsetX =
+      event.clientX -
+      (event.target as HTMLElement).getBoundingClientRect().left;
+    offsetY =
+      event.clientY - (event.target as HTMLElement).getBoundingClientRect().top;
 
-  const { clientX, clientY } = isTouchEvent ? (event as TouchEvent).touches[0] : (event as MouseEvent);
+    divX = offsetX - pickerPointer.value.offsetWidth / 2;
+    divY = offsetY - pickerPointer.value.offsetHeight / 2;
 
-  BottomPoint =
-    pickerWrap.value.offsetHeight - pickerPointer.value.offsetHeight;
-  RightPoint = pickerWrap.value.offsetWidth - pickerPointer.value.offsetWidth;
+    pickerPointer.value.style.left = `${divX}px`;
+    pickerPointer.value.style.top = `${divY}px`;
 
-  offsetX =
-    clientX - (event.target as HTMLElement).getBoundingClientRect().left;
-  offsetY = clientY - (event.target as HTMLElement).getBoundingClientRect().top;
+    updatePickerPosition(false);
+    onChangeSetToHexValue();
 
-  divX = offsetX - pickerPointer.value.offsetWidth / 2;
-  divY = offsetY - pickerPointer.value.offsetHeight / 2;
-
-  pickerPointer.value.style.left = `${divX}px`;
-  pickerPointer.value.style.top = `${divY}px`;
-
-  updatePickerPosition(false);
-  onChangeSetToHexValue();
-
-  if (isTouchEvent) {
-    window.addEventListener("touchmove", handlePickerOnMouseMove);
-    window.addEventListener("touchend", handlePickerOnMouseUp);
-  } else {
     window.addEventListener("mousemove", handlePickerOnMouseMove);
     window.addEventListener("mouseup", handlePickerOnMouseUp);
-  }
-};
+  };
 
-const handlePickerOnMouseMove = (event: MouseEvent | TouchEvent) => {
-  event.preventDefault();
+  const handlePickerOnMouseMove = (event: MouseEvent) => {
+    event.preventDefault();
+    const client = pickerWrap.value.getBoundingClientRect();
 
-  const isTouchEvent = "TouchEvent" in window && event instanceof TouchEvent;
-  const { clientX, clientY } = isTouchEvent ? (event as TouchEvent).touches[0] : (event as MouseEvent);
+    const newX =
+      event.clientX - client.left - pickerPointer.value.offsetWidth / 2;
+    const newY =
+      event.clientY - client.top - pickerPointer.value.offsetHeight / 2;
 
-  const client = pickerWrap.value.getBoundingClientRect();
+    if (newX >= 0 && newX <= RightPoint) {
+      divX = newX;
+      pickerPointer.value.style.left = `${newX}px`;
+    } else if (0 > newX) {
+      divX = 0;
+      pickerPointer.value.style.left = `${0}px`;
+    } else if (newX > RightPoint) {
+      divX = RightPoint;
+      pickerPointer.value.style.left = `${RightPoint}px`;
+    }
 
-  const newX = clientX - client.left - pickerPointer.value.offsetWidth / 2;
-  const newY = clientY - client.top - pickerPointer.value.offsetHeight / 2;
+    if (newY >= 0 && newY <= BottomPoint) {
+      divY = newY;
+      pickerPointer.value.style.top = `${newY}px`;
+    } else if (0 > newY) {
+      divY = 0;
+      pickerPointer.value.style.top = `${0}px`;
+    } else if (newY > BottomPoint) {
+      divY = BottomPoint;
+      pickerPointer.value.style.top = `${BottomPoint}px`;
+    }
+    updatePickerPosition(false);
+    onChangeSetToHexValue();
+  };
 
-  if (newX >= 0 && newX <= RightPoint) {
-    divX = newX;
-    pickerPointer.value.style.left = `${newX}px`;
-  } else if (0 > newX) {
-    divX = 0;
-    pickerPointer.value.style.left = `${0}px`;
-  } else if (newX > RightPoint) {
-    divX = RightPoint;
-    pickerPointer.value.style.left = `${RightPoint}px`;
-  }
-
-  if (newY >= 0 && newY <= BottomPoint) {
-    divY = newY;
-    pickerPointer.value.style.top = `${newY}px`;
-  } else if (0 > newY) {
-    divY = 0;
-    pickerPointer.value.style.top = `${0}px`;
-  } else if (newY > BottomPoint) {
-    divY = BottomPoint;
-    pickerPointer.value.style.top = `${BottomPoint}px`;
-  }
-  updatePickerPosition(false);
-  onChangeSetToHexValue();
-};
-
-const handlePickerOnMouseUp = (event: TouchEvent | MouseEvent) => {
-  const isTouchEvent = "TouchEvent" in window && event instanceof TouchEvent;
-
-  if (isTouchEvent) {
-    window.removeEventListener("touchmove", handlePickerOnMouseMove);
-    window.removeEventListener("touchend", handlePickerOnMouseUp);
-  } else {
+  const handlePickerOnMouseUp = () => {
     window.removeEventListener("mousemove", handlePickerOnMouseMove);
     window.removeEventListener("mouseup", handlePickerOnMouseUp);
-  }
-};
+  };
 
-const updatePickerPosition = (isNotUpdate: boolean) => {
-  if (!isNotUpdate) {
-    let SL = calculateSL();
-    // const val = hexToRgb(hslToHex(`hsl(${hue.value}, ${SL.s}%, ${SL.l}%)`))
+  const updatePickerPosition = (isNotUpdate: boolean) => {
+    if (!isNotUpdate) {
+      let SL = calculateSL();
+      // const val = hexToRgb(hslToHex(`hsl(${hue.value}, ${SL.s}%, ${SL.l}%)`))
 
-    const val = hslToRgb(hue.value, SL.s, SL.l);
-    if (val) {
-      if (isReady.value) {
-        let colorItem = colorList.value.find((item) => item.select == true);
-        if (colorItem) {
-          colorItem.r = val.r;
-          colorItem.g = val.g;
-          colorItem.b = val.b;
+      const val = hslToRgb(hue.value, SL.s, SL.l);
+      if (val) {
+        if (isReady.value) {
+          let colorItem = colorList.value.find((item) => item.select == true);
+          if (colorItem) {
+            colorItem.r = val.r;
+            colorItem.g = val.g;
+            colorItem.b = val.b;
+          }
         }
+        setOpacityBarColor();
+        setGradientBarColor();
       }
-      setOpacityBarColor();
-      setGradientBarColor();
     }
-  }
-};
+  };
 
-// HUE FONKSİYONLARI
-const hue = ref(0);
+  // HUE FONKSİYONLARI
+  const hue = ref(0);
 
-const setHue = async (isUpdate: boolean) => {
-  const { rgb } = hsl2Hex(hue.value, 100, 50);
-  redrawTheCanvas(rgb);
-  setTimeout(() => {
-    updatePickerPosition(isUpdate);
-    onChangeSetToHexValue();
-  }, 0);
-};
+  const setHue = async (isUpdate: boolean) => {
+    const { rgb } = hsl2Hex(hue.value, 100, 50);
+    redrawTheCanvas(rgb);
+    setTimeout(() => {
+      updatePickerPosition(isUpdate);
+      onChangeSetToHexValue();
+    }, 0);
+  };
 
-const calculateSL = () => {
-  let obj = { s: 0, l: 0 };
+  const calculateSL = () => {
+    let obj = { s: 0, l: 0 };
 
-  let rightLine =
-    pickerWrap.value.offsetWidth - pickerPointer.value.offsetWidth;
-  let bottomLine =
-    pickerWrap.value.offsetHeight - pickerPointer.value.offsetHeight;
-  let x = parseInt(pickerPointer.value.style.left);
-  let y = parseInt(pickerPointer.value.style.top);
-
-  let hsv_value = 1 - y / bottomLine;
-  let hsv_saturation = x / rightLine;
-
-  obj.l = (hsv_value / 2) * (2 - hsv_saturation);
-  obj.s = (hsv_value * hsv_saturation) / (1 - Math.abs(2 * obj.l - 1));
-
-  if (Number.isNaN(obj.s)) {
-    obj.s = obj.l;
-  }
-
-  obj.l = obj.l > 1 ? 1 : obj.l;
-  obj.s = obj.s > 1 ? 1 : obj.s;
-  return obj;
-};
-
-const findColorCoordinates = () => {
-  const targetColor = colorList.value.find((item) => item.select == true);
-
-  if (targetColor) {
-    const { l, s } = rgbToHsl(targetColor.r, targetColor.g, targetColor.b);
-    let lightness = l;
-    let saturation = s;
-
-    if (Number.isNaN(saturation)) {
-      saturation = lightness;
-    }
-
-    let coordinates = { x: 0, y: 0 };
     let rightLine =
       pickerWrap.value.offsetWidth - pickerPointer.value.offsetWidth;
     let bottomLine =
       pickerWrap.value.offsetHeight - pickerPointer.value.offsetHeight;
+    let x = parseInt(pickerPointer.value.style.left);
+    let y = parseInt(pickerPointer.value.style.top);
 
-    const [posx_inv, posy_inv] =
-      2 * lightness - 1 < 0
-        ? [
-          (rightLine * 2 * saturation) / (1 + saturation),
-          bottomLine * (1 - lightness * (1 + saturation)),
-        ]
-        : [
-          (-rightLine * 2 * (lightness - 1) * saturation) /
-          (lightness + saturation - lightness * saturation),
-          bottomLine * (lightness - 1) * (saturation - 1),
-        ];
+    let hsv_value = 1 - y / bottomLine;
+    let hsv_saturation = x / rightLine;
 
-    coordinates.x = posx_inv;
-    coordinates.y = posy_inv;
-    return coordinates;
-  } else {
-    return null;
-  }
-};
+    obj.l = (hsv_value / 2) * (2 - hsv_saturation);
+    obj.s = (hsv_value * hsv_saturation) / (1 - Math.abs(2 * obj.l - 1));
 
-const handleHueChange = () => {
-  const selectedItem = colorList.value.find((item) => item.select == true);
+    if (Number.isNaN(obj.s)) {
+      obj.s = obj.l;
+    }
 
-  if (selectedItem) {
-    selectedItem.hue = hue.value;
-  }
-};
+    obj.l = obj.l > 1 ? 1 : obj.l;
+    obj.s = obj.s > 1 ? 1 : obj.s;
+    return obj;
+  };
 
-// Opacity Bar Funcs
+  const findColorCoordinates = () => {
+    const targetColor = colorList.value.find((item) => item.select == true);
 
-const opacity = ref(100);
-const setOpacity = (event: Event) => {
-  if (props.showAlpha) {
-    const target = event.target as HTMLInputElement;
+    if (targetColor) {
+      const { l, s } = rgbToHsl(targetColor.r, targetColor.g, targetColor.b);
+      let lightness = l;
+      let saturation = s;
+
+      if (Number.isNaN(saturation)) {
+        saturation = lightness;
+      }
+
+      let coordinates = { x: 0, y: 0 };
+      let rightLine =
+        pickerWrap.value.offsetWidth - pickerPointer.value.offsetWidth;
+      let bottomLine =
+        pickerWrap.value.offsetHeight - pickerPointer.value.offsetHeight;
+
+      const [posx_inv, posy_inv] =
+        2 * lightness - 1 < 0
+          ? [
+              (rightLine * 2 * saturation) / (1 + saturation),
+              bottomLine * (1 - lightness * (1 + saturation)),
+            ]
+          : [
+              (-rightLine * 2 * (lightness - 1) * saturation) /
+                (lightness + saturation - lightness * saturation),
+              bottomLine * (lightness - 1) * (saturation - 1),
+            ];
+
+      coordinates.x = posx_inv;
+      coordinates.y = posy_inv;
+      return coordinates;
+    } else {
+      return null;
+    }
+  };
+
+  const handleHueChange = () => {
     const selectedItem = colorList.value.find((item) => item.select == true);
 
     if (selectedItem) {
-      selectedItem.a = parseInt(target.value);
-      setGradientBarColor();
+      selectedItem.hue = hue.value;
     }
-  }
-};
-// Gradient Bar Funcs
-const setToLeftGradientBarItem = (val: number) => {
-  const handleClient = pickerTemplateRef.value
-    ?.querySelector(".gradient-handle-content")
-    ?.getBoundingClientRect(); // Elementin varlığını kontrol etmek için "?." kullanımı
+  };
 
-  if (val === 0) {
-    return "0px";
-  } else if (val === 100 && handleClient) {
-    const gw = gradientBar.value?.offsetWidth || 0; // Değerin null olma durumunu ele almak için "?." kullanımı
-    return `${gw - (handleClient.width || 0)}px`;
-  } else {
-    const gw = (gradientBar.value?.offsetWidth || 0) * (val / 100);
-    return `${gw - (handleClient?.width || 0) / 2}px`;
-  }
-};
+  // Opacity Bar Funcs
 
-let gradientMouseBar: HTMLElement | null = null;
-let selectedGradientItem: HTMLElement | null = null;
+  const opacity = ref(100);
+  const setOpacity = (event: Event) => {
+    if (props.showAlpha) {
+      const target = event.target as HTMLInputElement;
+      const selectedItem = colorList.value.find((item) => item.select == true);
 
-const handleGradientItemOnMouseDown = (event: MouseEvent | TouchEvent) => {
-  const target = event.target as HTMLElement;
-  const offsetParent = target.offsetParent as HTMLElement | null;
-  if (offsetParent?.id?.includes("clr-gb-")) {
-    const id = offsetParent.id.replace("clr-gb-", "");
-    selectedGradientItem = offsetParent;
-    const selectedItem = colorList.value.find((item) => item.select == true);
-
-    if (selectedItem && selectedItem.id != id) {
-      const selectedHandle = pickerTemplateRef.value?.querySelector(
-        ".gradient-handle.select"
-      ) as HTMLElement | null;
-      selectedHandle?.classList.remove("select");
-      offsetParent.classList.add("select");
-
-      const selectedItemIndex = colorList.value.findIndex(
-        (item) => item.select == true
-      );
-
-      for (let i = 0; i < colorList.value.length; i++) {
-        const item = colorList.value[i];
-        if (item.id == id) {
-          if (selectedItemIndex != -1) {
-            colorList.value[selectedItemIndex].select = false;
-          }
-          colorList.value[i].select = true;
-          opacity.value = item.a;
-          setToChangeVariebles(item.r, item.g, item.b, item.hue, true);
-          setOpacityBarColor();
-          onChangeSetToHexValue();
-          break;
-        }
+      if (selectedItem) {
+        selectedItem.a = parseInt(target.value);
+        setGradientBarColor();
       }
     }
+  };
+  // Gradient Bar Funcs
+  const setToLeftGradientBarItem = (val: number) => {
+    const handleClient = pickerTemplateRef.value
+      ?.querySelector(".gradient-handle-content")
+      ?.getBoundingClientRect(); // Elementin varlığını kontrol etmek için "?." kullanımı
 
-    const isTouchEvent = "TouchEvent" in window && event instanceof TouchEvent;
-
-    if (isTouchEvent) {
-      window.addEventListener("touchmove", handleGradientMouseMove);
-      window.addEventListener("touchend", handleGradientItemOnMouseUp);
+    if (val === 0) {
+      return "0px";
+    } else if (val === 100 && handleClient) {
+      const gw = gradientBar.value?.offsetWidth || 0; // Değerin null olma durumunu ele almak için "?." kullanımı
+      return `${gw - (handleClient.width || 0)}px`;
     } else {
+      const gw = (gradientBar.value?.offsetWidth || 0) * (val / 100);
+      return `${gw - (handleClient?.width || 0) / 2}px`;
+    }
+  };
+
+  let gradientMouseBar: HTMLElement | null = null;
+  let selectedGradientItem: HTMLElement | null = null;
+
+  const handleGradientItemOnMouseDown = (event: MouseEvent) => {
+    const target = event.target as HTMLElement;
+    const offsetParent = target.offsetParent as HTMLElement | null;
+    if (offsetParent?.id?.includes("clr-gb-")) {
+      const id = offsetParent.id.replace("clr-gb-", "");
+      selectedGradientItem = offsetParent;
+      const selectedItem = colorList.value.find((item) => item.select == true);
+
+      if (selectedItem && selectedItem.id != id) {
+        const selectedHandle = pickerTemplateRef.value?.querySelector(
+          ".gradient-handle.select"
+        ) as HTMLElement | null;
+        selectedHandle?.classList.remove("select");
+        offsetParent.classList.add("select");
+
+        const selectedItemIndex = colorList.value.findIndex(
+          (item) => item.select == true
+        );
+
+        for (let i = 0; i < colorList.value.length; i++) {
+          const item = colorList.value[i];
+          if (item.id == id) {
+            if (selectedItemIndex != -1) {
+              colorList.value[selectedItemIndex].select = false;
+            }
+            colorList.value[i].select = true;
+            opacity.value = item.a;
+            setToChangeVariebles(item.r, item.g, item.b, item.hue, true);
+            setOpacityBarColor();
+            onChangeSetToHexValue();
+            break;
+          }
+        }
+      }
       window.addEventListener("mousemove", handleGradientMouseMove);
       window.addEventListener("mouseup", handleGradientItemOnMouseUp);
     }
-  }
-};
-
-const handleGradientItemOnMouseUp = (event: TouchEvent | MouseEvent) => {
-  const isTouchEvent = "TouchEvent" in window && event instanceof TouchEvent;
-  if (isTouchEvent) {
-    window.removeEventListener("touchmove", handleGradientMouseMove);
-    window.removeEventListener("touchend", handleGradientItemOnMouseUp);
-  } else {
-    window.removeEventListener("mousemove", handleGradientMouseMove);
-    window.removeEventListener("mouseup", handleGradientItemOnMouseUp);
-  }
-
-};
-
-const handleGradientMouseMove = (e: MouseEvent | TouchEvent) => {
-  e.preventDefault();
-  const isTouchEvent = "TouchEvent" in window && e instanceof TouchEvent;
-  const clientX = isTouchEvent ? e.touches[0].clientX : (e as MouseEvent).clientX
-
-  const handleClient = pickerTemplateRef.value
-    ?.querySelector(".gradient-handle-content")
-    ?.getBoundingClientRect();
-  const client = gradientMouseBar?.getBoundingClientRect();
-  const lastRightPoint = client?.width! - handleClient?.width!;
-  let newX = clientX - (client?.left || 0) - (handleClient?.width || 0) / 2;
-
-  if (newX < 0) {
-    newX = 0;
-  } else if (newX > lastRightPoint) {
-    newX = lastRightPoint;
-  }
-
-  if (selectedGradientItem) {
-    selectedGradientItem.style.left = `${newX}px`;
-
-    const percent = parseFloat(
-      ((newX / (client?.width! - handleClient?.width!)) * 100).toFixed(0)
-    );
-
-    const selectedItem = colorList.value.find(
-      (item) => item.id == selectedGradientItem?.id.replace("clr-gb-", "")
-    );
-
-    if (selectedItem) {
-      selectedItem.percent = percent;
-    }
-
-    setGradientBarColor();
-  }
-};
-
-const addColor = (e: MouseEvent | TouchEvent) => {
-
-  const isTouchEvent = "TouchEvent" in window && e instanceof TouchEvent;
-
-  const client = gradientMouseBar?.getBoundingClientRect();
-  let percent: number
-
-  if (!isTouchEvent) {
-    percent = Math.round(
-      (((e as MouseEvent).clientX - (client?.left || 0)) / (client?.width || 1)) * 100
-    );
-  } else {
-
-    percent = Math.round(
-      ((e.touches[0].clientX - (client?.left || 0)) / (client?.width || 1)) * 100
-    );
-  }
-
-
-  const selectIndex = colorList.value.findIndex((item) => item.select == true);
-
-  const selectItem = colorList.value[selectIndex];
-
-  const item = {
-    id: Date.now(),
-    r: selectItem.r,
-    g: selectItem.g,
-    b: selectItem.b,
-    a: selectItem.a,
-    percent: percent,
-    hue: selectItem.hue,
-    select: true,
   };
 
-  colorList.value[selectIndex].select = false;
-  const selectedHandle = pickerTemplateRef.value?.querySelector(
-    ".gradient-handle.select"
-  ) as HTMLElement | null;
-  selectedHandle?.classList.remove("select");
+  const handleGradientItemOnMouseUp = () => {
+    window.removeEventListener("mousemove", handleGradientMouseMove);
+    window.removeEventListener("mouseup", handleGradientItemOnMouseDown);
+  };
 
-  colorList.value = [...colorList.value, item];
+  const handleGradientMouseMove = (e: MouseEvent) => {
+    e.preventDefault();
 
-  createGradientItem(item);
-  selectedGradientItem = pickerTemplateRef.value?.querySelector(
-    `#clr-gb-${item.id}`
-  ) as HTMLElement;
-  setGradientBarColor();
-};
+    const handleClient = pickerTemplateRef.value
+      ?.querySelector(".gradient-handle-content")
+      ?.getBoundingClientRect();
+    const client = gradientMouseBar?.getBoundingClientRect();
+    const lastRightPoint = client?.width! - handleClient?.width!;
+    let newX = e.clientX - (client?.left || 0) - (handleClient?.width || 0) / 2;
 
-// Extra Funcs
-
-const isColorInStrip = (selectedColor: RGB) => {
-  if (selectedColor.r == 0 && selectedColor.g == 0 && selectedColor.b == 0) {
-    return true;
-  } else if (
-    selectedColor.r == 255 &&
-    selectedColor.g == 255 &&
-    selectedColor.b == 255
-  ) {
-    return true;
-  } else {
-    const ctx = canvas.value.getContext("2d", { willReadFrequently: true });
-    const width = canvas.value.width;
-    const height = canvas.value.height;
-    const imageData = ctx.getImageData(0, 0, width, height).data;
-
-    // Seçilen renk bileşenlerini al
-    const selectedR = selectedColor.r;
-    const selectedG = selectedColor.g;
-    const selectedB = selectedColor.b;
-
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const i = (y * width + x) * 4; // Her piksel 4 bileşenli (RGBA)
-        const r = imageData[i];
-        const g = imageData[i + 1];
-        const b = imageData[i + 2];
-
-        // Seçilen renkle piksel renklerini karşılaştır
-        if (r === selectedR && g === selectedG && b === selectedB) {
-          return true; // Eşleşme bulundu, renk color-strip içinde
-        }
-      }
+    if (newX < 0) {
+      newX = 0;
+    } else if (newX > lastRightPoint) {
+      newX = lastRightPoint;
     }
 
-    return false; // Eşleşme bulunamadı, renk color-strip dışında
-  }
-};
+    if (selectedGradientItem) {
+      selectedGradientItem.style.left = `${newX}px`;
 
-const setToChangeVariebles = (
-  r: number,
-  g: number,
-  b: number,
-  hueVal: number,
-  isNotUpdate: boolean
-) => {
-  setTimeout(() => {
-    if (!isColorInStrip({ r, g, b })) {
-      let coord = findColorCoordinates();
-      if (coord) {
-        pickerPointer.value.style.left = `${coord.x}px`;
-        pickerPointer.value.style.top = `${coord.y}px`;
-      }
-      hue.value = hueVal;
-      setHue(isNotUpdate);
-    } else {
-      let coord = findColorCoordinates();
-      if (coord) {
-        pickerPointer.value.style.left = `${coord.x}px`;
-        pickerPointer.value.style.top = `${coord.y}px`;
-      }
-    }
-  }, 0);
-};
-
-const setFirstEmptyValue = () => {
-  colorList.value.forEach((item) => createGradientItem(item));
-
-  firstSetHue();
-  const clr = colorList.value[0];
-  hue.value = clr.hue;
-  setHue(true);
-
-  let coord = findColorCoordinates();
-  if (coord) {
-    pickerPointer.value.style.left = `${coord.x}px`;
-    pickerPointer.value.style.top = `${coord.y}px`;
-  }
-  setOpacityBarColor();
-  setGradientBarColor();
-};
-
-// SET ITEMS COLORS FUNCS
-
-const createGradientItem = (item: Color) => {
-  if (PickerMode.value == "gradient") {
-    let el = document.createElement("div");
-    el.id = `clr-gb-${item.id}`;
-    el.classList.add("gradient-handle");
-    el.style.left = setToLeftGradientBarItem(item.percent);
-
-    let elChild = document.createElement("div");
-    elChild.classList.add("gradient-handle-content");
-    if (item.select == true) {
-      el.classList.add("select");
-    }
-
-    el.appendChild(elChild);
-    if (gradientMouseBar) {
-      gradientMouseBar.appendChild(el);
-    }
-  }
-};
-
-const redrawTheCanvas = (rgb: number[]) => {
-  const context = canvas.value.getContext("2d", { willReadFrequently: true });
-  const endX = canvas.value.width;
-  const endY = canvas.value.height;
-
-  context.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
-  context.fillRect(0, 0, endX, endY);
-
-  let grdWhite = context.createLinearGradient(0, 0, endX - 12, 0);
-  grdWhite.addColorStop(0, "rgb(255,255,255)");
-  grdWhite.addColorStop(1, "rgba(255,255,255,0)");
-  context.fillStyle = grdWhite;
-  context.fillRect(0, 0, endX, endY);
-
-  let grdBlack = context.createLinearGradient(0, 0, 0, endY);
-  grdBlack.addColorStop(0, "rgba(0,0,0,0)");
-  grdBlack.addColorStop(1, "rgb(0,0,0)");
-  context.fillStyle = grdBlack;
-  context.fillRect(0, 0, endX, endY);
-};
-
-const setOpacityBarColor = () => {
-  if (props.showAlpha) {
-    let colorItem = colorList.value.find((item) => item.select == true);
-    if (colorItem) {
-      opacitySlider.value.style.background = ` linear-gradient(90deg,rgba(255, 255, 255, 0) 0%, rgba(${colorItem.r}, ${colorItem.g}, ${colorItem.b}, 100) 97%)`;
-    }
-  }
-};
-
-const setGradientBarColor = () => {
-  if (PickerMode.value == "gradient") {
-    colorList.value.sort((a, b) => {
-      return a.percent - b.percent;
-    });
-
-    let barBackground = "linear-gradient(90deg, ";
-    let gradientBarBackgroundImage;
-
-    if (gradientType.value == "linear") {
-      gradientBarBackgroundImage = `linear-gradient(${gradientAngle.angle}deg, `;
-      for (let i = 0; i < colorList.value.length; i++) {
-        const { r, g, b, a, percent } = colorList.value[i];
-
-        if (colorList.value.length - 1 == i) {
-          barBackground =
-            barBackground + `rgba(${r},${g},${b},${a / 100}) ${percent}%)`;
-          gradientBarBackgroundImage =
-            gradientBarBackgroundImage +
-            `rgba(${r},${g},${b},${a / 100}) ${percent}%)`;
-        } else {
-          barBackground =
-            barBackground + `rgba(${r},${g},${b},${a / 100}) ${percent}%, `;
-          gradientBarBackgroundImage =
-            gradientBarBackgroundImage +
-            `rgba(${r},${g},${b},${a / 100}) ${percent}%, `;
-        }
-      }
-    } else {
-      gradientBarBackgroundImage = `radial-gradient(circle at ${gradientAngle.percentageX}% ${gradientAngle.percentageY}%, `;
-      for (let i = 0; i < colorList.value.length; i++) {
-        const { r, g, b, a, percent } = colorList.value[i];
-
-        if (colorList.value.length - 1 == i) {
-          barBackground =
-            barBackground + `rgba(${r},${g},${b},${a / 100}) ${percent}%)`;
-          gradientBarBackgroundImage =
-            gradientBarBackgroundImage +
-            `rgba(${r},${g},${b},${a / 100}) ${percent}%)`;
-        } else {
-          barBackground =
-            barBackground + `rgba(${r},${g},${b},${a / 100}) ${percent}%, `;
-          gradientBarBackgroundImage =
-            gradientBarBackgroundImage +
-            `rgba(${r},${g},${b},${a / 100}) ${percent}%, `;
-        }
-      }
-    }
-
-    gradientBar.value.style.backgroundImage = barBackground;
-
-    let target = pickerTemplateRef.value?.querySelector(
-      "#ck-cp-target-background"
-    );
-    if (target) {
-      (target as HTMLElement).style.backgroundImage =
-        gradientBarBackgroundImage;
-      if (isReady.value) {
-        emitUpdateModelValue((target as HTMLElement).style.backgroundImage);
-      }
-    }
-  } else {
-    const { r, g, b, a } = colorList.value[0];
-    let val = "";
-
-    switch (props.type) {
-      case "HEX8":
-        val = rgbaToHex8(r, g, b, a / 100);
-        break;
-      case "RGBA":
-        val = `rgba(${r},${g},${b},${a / 100})`;
-        break;
-      case "RGB":
-        val = `rgb(${r},${g},${b})`;
-        break;
-      case "HEX":
-        val = rgb2Hex(r, g, b);
-        break;
-      default:
-        break;
-    }
-
-    if (isReady.value) {
-      emitUpdateModelValue(val);
-    }
-  }
-};
-
-const firstSetHue = () => {
-  colorList.value.forEach((clr) => {
-    clr.hue = rgbToHue(clr.r, clr.g, clr.b);
-  });
-};
-
-// Menu Func
-const setBackgroundType = (event: string) => {
-  gradientType.value = event as GradientMode;
-
-  setGradientBarColor();
-};
-
-const deleteColor = () => {
-  if (colorList.value.length > 2) {
-    const index = colorList.value.findIndex((item) => item.select == true);
-
-    if (index !== -1) {
-      const deleteItemID = colorList.value[index].id;
-      colorList.value.splice(index, 1);
-      const deleteElement = pickerTemplateRef.value?.querySelector(
-        `#clr-gb-${deleteItemID}`
+      const percent = parseFloat(
+        ((newX / (client?.width! - handleClient?.width!)) * 100).toFixed(0)
       );
-      deleteElement?.remove();
 
-      const item = colorList.value[0];
-      if (item) {
-        item.select = true;
-        selectedGradientItem = pickerTemplateRef.value?.querySelector(
-          `#clr-gb-${item.id}`
-        ) as HTMLElement;
-        selectedGradientItem?.classList.add("select");
-        setToChangeVariebles(item.r, item.g, item.b, item.hue, false);
-        onChangeSetToHexValue();
-        setGradientBarColor();
+      const selectedItem = colorList.value.find(
+        (item) => item.id == selectedGradientItem?.id.replace("clr-gb-", "")
+      );
+
+      if (selectedItem) {
+        selectedItem.percent = percent;
+      }
+
+      setGradientBarColor();
+    }
+  };
+
+  const addColor = (e: MouseEvent) => {
+    const client = gradientMouseBar?.getBoundingClientRect();
+    const percent = Math.round(
+      ((e.clientX - (client?.left || 0)) / (client?.width || 1)) * 100
+    );
+
+    const selectIndex = colorList.value.findIndex(
+      (item) => item.select == true
+    );
+
+    const selectItem = colorList.value[selectIndex];
+
+    const item = {
+      id: Date.now(),
+      r: selectItem.r,
+      g: selectItem.g,
+      b: selectItem.b,
+      a: selectItem.a,
+      percent: percent,
+      hue: selectItem.hue,
+      select: true,
+    };
+
+    colorList.value[selectIndex].select = false;
+    const selectedHandle = pickerTemplateRef.value?.querySelector(
+      ".gradient-handle.select"
+    ) as HTMLElement | null;
+    selectedHandle?.classList.remove("select");
+
+    colorList.value = [...colorList.value, item];
+
+    createGradientItem(item);
+    selectedGradientItem = pickerTemplateRef.value?.querySelector(
+      `#clr-gb-${item.id}`
+    ) as HTMLElement;
+    setGradientBarColor();
+  };
+
+  // Extra Funcs
+
+  const isColorInStrip = (selectedColor: RGB) => {
+    if (selectedColor.r == 0 && selectedColor.g == 0 && selectedColor.b == 0) {
+      return true;
+    } else if (
+      selectedColor.r == 255 &&
+      selectedColor.g == 255 &&
+      selectedColor.b == 255
+    ) {
+      return true;
+    } else {
+      const ctx = canvas.value.getContext("2d", { willReadFrequently: true });
+      const width = canvas.value.width;
+      const height = canvas.value.height;
+      const imageData = ctx.getImageData(0, 0, width, height).data;
+
+      // Seçilen renk bileşenlerini al
+      const selectedR = selectedColor.r;
+      const selectedG = selectedColor.g;
+      const selectedB = selectedColor.b;
+
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const i = (y * width + x) * 4; // Her piksel 4 bileşenli (RGBA)
+          const r = imageData[i];
+          const g = imageData[i + 1];
+          const b = imageData[i + 2];
+
+          // Seçilen renkle piksel renklerini karşılaştır
+          if (r === selectedR && g === selectedG && b === selectedB) {
+            return true; // Eşleşme bulundu, renk color-strip içinde
+          }
+        }
+      }
+
+      return false; // Eşleşme bulunamadı, renk color-strip dışında
+    }
+  };
+
+  const setToChangeVariebles = (
+    r: number,
+    g: number,
+    b: number,
+    hueVal: number,
+    isNotUpdate: boolean
+  ) => {
+    setTimeout(() => {
+      if (!isColorInStrip({ r, g, b })) {
+        let coord = findColorCoordinates();
+        if (coord) {
+          pickerPointer.value.style.left = `${coord.x}px`;
+          pickerPointer.value.style.top = `${coord.y}px`;
+        }
+        hue.value = hueVal;
+        setHue(isNotUpdate);
+      } else {
+        let coord = findColorCoordinates();
+        if (coord) {
+          pickerPointer.value.style.left = `${coord.x}px`;
+          pickerPointer.value.style.top = `${coord.y}px`;
+        }
+      }
+    }, 0);
+  };
+
+  const setFirstEmptyValue = (empty?: boolean) => {
+    colorList.value.forEach((item) => createGradientItem(item));
+
+    firstSetHue();
+    const clr = colorList.value[0];
+    hue.value = clr.hue;
+    setHue(true);
+
+    let coord = findColorCoordinates();
+    if (coord) {
+      pickerPointer.value.style.left = `${coord.x}px`;
+      pickerPointer.value.style.top = `${coord.y}px`;
+    }
+    setOpacityBarColor();
+    setGradientBarColor(empty);
+  };
+
+  // SET ITEMS COLORS FUNCS
+
+  const createGradientItem = (item: Color) => {
+    if (PickerMode.value == "gradient") {
+      let el = document.createElement("div");
+      el.id = `clr-gb-${item.id}`;
+      el.classList.add("gradient-handle");
+      el.style.left = setToLeftGradientBarItem(item.percent);
+
+      let elChild = document.createElement("div");
+      elChild.classList.add("gradient-handle-content");
+      if (item.select == true) {
+        el.classList.add("select");
+      }
+
+      el.appendChild(elChild);
+      if (gradientMouseBar) {
+        gradientMouseBar.appendChild(el);
       }
     }
-  }
-};
+  };
 
-const handleOnClickEyeDropper = () => {
-  const el =
-    pickerTemplateRef.value?.querySelector<HTMLElement>("#cp-btn-eyedropper");
-  el?.classList.add("active");
+  const redrawTheCanvas = (rgb: number[]) => {
+    const context = canvas.value.getContext("2d", { willReadFrequently: true });
+    const endX = canvas.value.width;
+    const endY = canvas.value.height;
 
-  // @ts-ignore
-  const eyeDropper = new EyeDropper();
+    context.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+    context.fillRect(0, 0, endX, endY);
 
-  eyeDropper
-    .open()
-    // @ts-ignore
-    .then((result) => {
-      const { sRGBHex } = result;
+    let grdWhite = context.createLinearGradient(0, 0, endX - 12, 0);
+    grdWhite.addColorStop(0, "rgb(255,255,255)");
+    grdWhite.addColorStop(1, "rgba(255,255,255,0)");
+    context.fillStyle = grdWhite;
+    context.fillRect(0, 0, endX, endY);
 
-      const selectedItem = colorList.value.find((item) => item.select == true);
-      const val = hexToRgb(sRGBHex);
+    let grdBlack = context.createLinearGradient(0, 0, 0, endY);
+    grdBlack.addColorStop(0, "rgba(0,0,0,0)");
+    grdBlack.addColorStop(1, "rgb(0,0,0)");
+    context.fillStyle = grdBlack;
+    context.fillRect(0, 0, endX, endY);
+  };
 
-      if (val) {
-        const hueVal = rgbToHue(val.r, val.g, val.b);
-
-        if (selectedItem) {
-          selectedItem.hue = hueVal;
-          selectedItem.r = val.r;
-          selectedItem.g = val.g;
-          selectedItem.b = val.b;
-        }
-
-        if (!isColorInStrip(val)) {
-          hue.value = hueVal;
-          const { rgb } = hsl2Hex(hueVal, 100, 50);
-          redrawTheCanvas(rgb);
-          const coord = findColorCoordinates();
-          if (coord) {
-            pickerPointer.value.style.left = `${coord.x}px`;
-            pickerPointer.value.style.top = `${coord.y}px`;
-          }
-        } else {
-          const coord = findColorCoordinates();
-          if (coord) {
-            pickerPointer.value.style.left = `${coord.x}px`;
-            pickerPointer.value.style.top = `${coord.y}px`;
-          }
-        }
-
-        onChangeSetToHexValue();
-        setOpacityBarColor();
-        setGradientBarColor();
-
-        el?.classList.remove("active");
+  const setOpacityBarColor = () => {
+    if (props.showAlpha) {
+      let colorItem = colorList.value.find((item) => item.select == true);
+      if (colorItem) {
+        opacitySlider.value.style.background = ` linear-gradient(90deg,rgba(255, 255, 255, 0) 0%, rgba(${colorItem.r}, ${colorItem.g}, ${colorItem.b}, 100) 97%)`;
       }
-    })
-    .catch(() => {
-      el?.classList.remove("active");
-    });
-};
+    }
+  };
+  const setGradientBarColor = (empty?: boolean) => {
+    if (PickerMode.value == "gradient") {
+      colorList.value.sort((a, b) => {
+        return a.percent - b.percent;
+      });
 
-const handleRGBAInput = (value: number, type: string) => {
-  if (type != "a") {
-    const selectItem = colorList.value.find((item) => item.select == true);
-    if (selectItem) {
-      const hueVal = rgbToHue(selectItem.r, selectItem.g, selectItem.b);
-      selectItem.hue = hueVal;
+      let barBackground = "linear-gradient(90deg, ";
+      let gradientBarBackgroundImage;
+
+      if (gradientType.value == "linear") {
+        gradientBarBackgroundImage = `linear-gradient(${gradientAngle.angle}deg, `;
+        for (let i = 0; i < colorList.value.length; i++) {
+          const { r, g, b, a, percent } = colorList.value[i];
+
+          if (colorList.value.length - 1 == i) {
+            barBackground =
+              barBackground + `rgba(${r},${g},${b},${a / 100}) ${percent}%)`;
+            gradientBarBackgroundImage =
+              gradientBarBackgroundImage +
+              `rgba(${r},${g},${b},${a / 100}) ${percent}%)`;
+          } else {
+            barBackground =
+              barBackground + `rgba(${r},${g},${b},${a / 100}) ${percent}%, `;
+            gradientBarBackgroundImage =
+              gradientBarBackgroundImage +
+              `rgba(${r},${g},${b},${a / 100}) ${percent}%, `;
+          }
+        }
+      } else {
+        gradientBarBackgroundImage = `radial-gradient(circle at ${gradientAngle.percentageX}% ${gradientAngle.percentageY}%, `;
+        for (let i = 0; i < colorList.value.length; i++) {
+          const { r, g, b, a, percent } = colorList.value[i];
+
+          if (colorList.value.length - 1 == i) {
+            barBackground =
+              barBackground + `rgba(${r},${g},${b},${a / 100}) ${percent}%)`;
+            gradientBarBackgroundImage =
+              gradientBarBackgroundImage +
+              `rgba(${r},${g},${b},${a / 100}) ${percent}%)`;
+          } else {
+            barBackground =
+              barBackground + `rgba(${r},${g},${b},${a / 100}) ${percent}%, `;
+            gradientBarBackgroundImage =
+              gradientBarBackgroundImage +
+              `rgba(${r},${g},${b},${a / 100}) ${percent}%, `;
+          }
+        }
+      }
+
+      gradientBar.value.style.backgroundImage = barBackground;
+
+      let target = pickerTemplateRef.value?.querySelector(
+        "#ck-cp-target-background"
+      );
+      if (target) {
+        (target as HTMLElement).style.backgroundImage =
+          gradientBarBackgroundImage;
+        if (isReady.value && !empty) {
+          emitUpdateModelValue((target as HTMLElement).style.backgroundImage);
+        } else {
+          emitUpdateModelValue("");
+        }
+      }
+    } else {
+      const { r, g, b, a } = colorList.value[0];
+      let val = "";
+
+      switch (props.type) {
+        case "HEX8":
+          val = rgbaToHex8(r, g, b, a / 100);
+          break;
+        case "RGBA":
+          val = `rgba(${r},${g},${b},${a / 100})`;
+          break;
+        case "RGB":
+          val = `rgb(${r},${g},${b})`;
+          break;
+        case "HEX":
+          val = rgb2Hex(r, g, b);
+          break;
+        default:
+          break;
+      }
+      if (empty) {
+        emitUpdateModelValue("");
+      } else {
+        emitUpdateModelValue(val);
+      }
+    }
+  };
+
+  const firstSetHue = () => {
+    colorList.value.forEach((clr) => {
+      clr.hue = rgbToHue(clr.r, clr.g, clr.b);
+    });
+  };
+
+  // Menu Func
+  const setBackgroundType = (event: string) => {
+    gradientType.value = event;
+
+    setGradientBarColor();
+  };
+
+  const deleteColor = () => {
+    if (colorList.value.length > 2) {
+      const index = colorList.value.findIndex((item) => item.select == true);
+
+      if (index !== -1) {
+        const deleteItemID = colorList.value[index].id;
+        colorList.value.splice(index, 1);
+        const deleteElement = pickerTemplateRef.value?.querySelector(
+          `#clr-gb-${deleteItemID}`
+        );
+        deleteElement?.remove();
+
+        const item = colorList.value[0];
+        if (item) {
+          item.select = true;
+          selectedGradientItem = pickerTemplateRef.value?.querySelector(
+            `#clr-gb-${item.id}`
+          ) as HTMLElement;
+          selectedGradientItem?.classList.add("select");
+          setToChangeVariebles(item.r, item.g, item.b, item.hue, false);
+          onChangeSetToHexValue();
+          setGradientBarColor();
+        }
+      }
+    }
+  };
+
+  const handleOnClickEyeDropper = () => {
+    const el =
+      pickerTemplateRef.value?.querySelector<HTMLElement>("#cp-btn-eyedropper");
+    el?.classList.add("active");
+
+    // @ts-ignore
+    const eyeDropper = new EyeDropper();
+
+    eyeDropper
+      .open()
+      // @ts-ignore
+      .then((result) => {
+        const { sRGBHex } = result;
+
+        const selectedItem = colorList.value.find(
+          (item) => item.select == true
+        );
+        const val = hexToRgb(sRGBHex);
+
+        if (val) {
+          const hueVal = rgbToHue(val.r, val.g, val.b);
+
+          if (selectedItem) {
+            selectedItem.hue = hueVal;
+            selectedItem.r = val.r;
+            selectedItem.g = val.g;
+            selectedItem.b = val.b;
+          }
+
+          if (!isColorInStrip(val)) {
+            hue.value = hueVal;
+            const { rgb } = hsl2Hex(hueVal, 100, 50);
+            redrawTheCanvas(rgb);
+            const coord = findColorCoordinates();
+            if (coord) {
+              pickerPointer.value.style.left = `${coord.x}px`;
+              pickerPointer.value.style.top = `${coord.y}px`;
+            }
+          } else {
+            const coord = findColorCoordinates();
+            if (coord) {
+              pickerPointer.value.style.left = `${coord.x}px`;
+              pickerPointer.value.style.top = `${coord.y}px`;
+            }
+          }
+
+          onChangeSetToHexValue();
+          setOpacityBarColor();
+          setGradientBarColor();
+
+          el?.classList.remove("active");
+        }
+      })
+      .catch(() => {
+        el?.classList.remove("active");
+      });
+  };
+
+  const handleRGBAInput = (value: number, type: string) => {
+    if (type != "a") {
+      const selectItem = colorList.value.find((item) => item.select == true);
+      if (selectItem) {
+        const hueVal = rgbToHue(selectItem.r, selectItem.g, selectItem.b);
+        selectItem.hue = hueVal;
+        setToChangeVariebles(
+          selectItem.r,
+          selectItem.g,
+          selectItem.b,
+          selectItem.hue,
+          true
+        );
+        setGradientBarColor();
+        setOpacityBarColor();
+      }
+    } else {
+      opacity.value = value;
+      setGradientBarColor();
+      setOpacityBarColor();
+    }
+  };
+
+  const handleHSLInput = () => {
+    const selectColor = colorList.value.find((color) => color.select == true);
+    if (
+      selectColor &&
+      !Number.isNaN(HSL.h) &&
+      !Number.isNaN(HSL.s) &&
+      !Number.isNaN(HSL.l)
+    ) {
+      const { r, g, b } = hslToRgb(HSL.h, HSL.s / 100, HSL.l / 100);
+
+      selectColor.hue = HSL.h;
+      selectColor.r = r;
+      selectColor.g = g;
+      selectColor.b = b;
       setToChangeVariebles(
-        selectItem.r,
-        selectItem.g,
-        selectItem.b,
-        selectItem.hue,
+        selectColor.r,
+        selectColor.g,
+        selectColor.b,
+        selectColor.hue,
         true
       );
       setGradientBarColor();
       setOpacityBarColor();
     }
-  } else {
-    opacity.value = value;
-    setGradientBarColor();
-    setOpacityBarColor();
-  }
-};
+  };
 
-const handleHSLInput = () => {
-  const selectColor = colorList.value.find((color) => color.select == true);
-  if (
-    selectColor &&
-    !Number.isNaN(HSL.h) &&
-    !Number.isNaN(HSL.s) &&
-    !Number.isNaN(HSL.l)
-  ) {
-    const { r, g, b } = hslToRgb(HSL.h, HSL.s / 100, HSL.l / 100);
-
-    selectColor.hue = HSL.h;
-    selectColor.r = r;
-    selectColor.g = g;
-    selectColor.b = b;
-    setToChangeVariebles(
-      selectColor.r,
-      selectColor.g,
-      selectColor.b,
-      selectColor.hue,
-      true
-    );
-    setGradientBarColor();
-    setOpacityBarColor();
-  }
-};
-
-const handleHSVInput = () => {
-  const selectColor = colorList.value.find((color) => color.select == true);
-  if (
-    selectColor &&
-    !Number.isNaN(HSV.h) &&
-    !Number.isNaN(HSV.s) &&
-    !Number.isNaN(HSV.v)
-  ) {
-    const { r, g, b } = hsvToRgb(HSV.h, HSV.s / 100, HSV.v / 100);
-    const { h } = hsvToHsl(HSV.h, HSV.s / 100, HSV.v / 100);
-    selectColor.hue = h;
-    selectColor.r = r;
-    selectColor.g = g;
-    selectColor.b = b;
-    setToChangeVariebles(
-      selectColor.r,
-      selectColor.g,
-      selectColor.b,
-      selectColor.hue,
-      true
-    );
-    setGradientBarColor();
-    setOpacityBarColor();
-  }
-};
-
-const handleCMYKInput = () => {
-  const selectColor = colorList.value.find((color) => color.select == true);
-  if (
-    selectColor &&
-    !Number.isNaN(CMYK.c) &&
-    !Number.isNaN(CMYK.m) &&
-    !Number.isNaN(CMYK.y) &&
-    !Number.isNaN(CMYK.k)
-  ) {
-    const { r, g, b } = cmykToRgb(
-      CMYK.c / 100,
-      CMYK.m / 100,
-      CMYK.y / 100,
-      CMYK.k / 100
-    );
-    const h = rgbToHue(r, g, b);
-    selectColor.hue = h;
-    selectColor.r = r;
-    selectColor.g = g;
-    selectColor.b = b;
-    setToChangeVariebles(
-      selectColor.r,
-      selectColor.g,
-      selectColor.b,
-      selectColor.hue,
-      true
-    );
-    setGradientBarColor();
-    setOpacityBarColor();
-  }
-};
-
-const applyHex = () => {
-  if (hexVal.value) {
-    const rgb = hexToRgb(hexVal.value);
-
-    if (rgb) {
-      const hueVal = rgbToHue(rgb.r, rgb.g, rgb.b);
-      const selectItem = colorList.value.find((item) => item.select == true);
-      if (selectItem) {
-        selectItem.r = rgb.r;
-        selectItem.g = rgb.g;
-        selectItem.b = rgb.b;
-        selectItem.hue = hueVal;
-
-        setToChangeVariebles(rgb.r, rgb.g, rgb.b, selectItem.hue, true);
-        setGradientBarColor();
-        setOpacityBarColor();
-        handleChangeInputType(inputType.value);
-      }
-    }
-  }
-};
-
-const onChangeSetToHexValue = () => {
-  const item = colorList.value.find((item) => item.select == true);
-  if (item) {
-    hexVal.value = rgb2Hex(item.r, item.g, item.b).toUpperCase();
-  }
-  handleChangeInputType(inputType.value);
-};
-
-const handleColorItemOnClick = (color: string) => {
-  hexVal.value = color;
-  let val = hexToRgb(hexVal.value);
-  if (val) {
-    const hueVal = rgbToHue(val.r, val.g, val.b);
-    const selectItem = colorList.value.find((item) => item.select == true);
-    if (selectItem) {
-      selectItem.r = val.r;
-      selectItem.g = val.g;
-      selectItem.b = val.b;
-      selectItem.hue = hueVal;
-
-      setToChangeVariebles(val.r, val.g, val.b, selectItem.hue, true);
+  const handleHSVInput = () => {
+    const selectColor = colorList.value.find((color) => color.select == true);
+    if (
+      selectColor &&
+      !Number.isNaN(HSV.h) &&
+      !Number.isNaN(HSV.s) &&
+      !Number.isNaN(HSV.v)
+    ) {
+      const { r, g, b } = hsvToRgb(HSV.h, HSV.s / 100, HSV.v / 100);
+      const { h } = hsvToHsl(HSV.h, HSV.s / 100, HSV.v / 100);
+      selectColor.hue = h;
+      selectColor.r = r;
+      selectColor.g = g;
+      selectColor.b = b;
+      setToChangeVariebles(
+        selectColor.r,
+        selectColor.g,
+        selectColor.b,
+        selectColor.hue,
+        true
+      );
       setGradientBarColor();
       setOpacityBarColor();
     }
+  };
+
+  const handleCMYKInput = () => {
+    const selectColor = colorList.value.find((color) => color.select == true);
+    if (
+      selectColor &&
+      !Number.isNaN(CMYK.c) &&
+      !Number.isNaN(CMYK.m) &&
+      !Number.isNaN(CMYK.y) &&
+      !Number.isNaN(CMYK.k)
+    ) {
+      const { r, g, b } = cmykToRgb(
+        CMYK.c / 100,
+        CMYK.m / 100,
+        CMYK.y / 100,
+        CMYK.k / 100
+      );
+      const h = rgbToHue(r, g, b);
+      selectColor.hue = h;
+      selectColor.r = r;
+      selectColor.g = g;
+      selectColor.b = b;
+      setToChangeVariebles(
+        selectColor.r,
+        selectColor.g,
+        selectColor.b,
+        selectColor.hue,
+        true
+      );
+      setGradientBarColor();
+      setOpacityBarColor();
+    }
+  };
+
+  const applyHex = () => {
+    if (hexVal.value) {
+      const rgb = hexToRgb(hexVal.value);
+      if (rgb) {
+        const hueVal = rgbToHue(rgb.r, rgb.g, rgb.b);
+        const selectItem = colorList.value.find((item) => item.select == true);
+        if (selectItem) {
+          selectItem.r = rgb.r;
+          selectItem.g = rgb.g;
+          selectItem.b = rgb.b;
+          selectItem.hue = hueVal;
+          if (hexVal.value.length >= 8) {
+            const rgba = hex8ToRgba(hexVal.value);
+            if (rgba) {
+              selectItem.a = Math.round(rgba.a * 100);
+              opacity.value = selectItem.a;
+            }
+          } else {
+            selectItem.a = 100;
+            opacity.value = 100;
+          }
+          setToChangeVariebles(rgb.r, rgb.g, rgb.b, selectItem.hue, true);
+          setGradientBarColor();
+          setOpacityBarColor();
+          handleChangeInputType(inputType.value);
+        }
+      }
+    }
+  };
+
+  const onChangeSetToHexValue = () => {
+    const item = colorList.value.find((item) => item.select == true);
+    if (item) {
+      hexVal.value = rgb2Hex(item.r, item.g, item.b).toUpperCase();
+    }
+    handleChangeInputType(inputType.value);
+  };
+
+  const handleColorItemOnClick = (color: string) => {
+    hexVal.value = color;
+    let val = hexToRgb(hexVal.value);
+    if (val) {
+      const hueVal = rgbToHue(val.r, val.g, val.b);
+      const selectItem = colorList.value.find((item) => item.select == true);
+      if (selectItem) {
+        selectItem.r = val.r;
+        selectItem.g = val.g;
+        selectItem.b = val.b;
+        selectItem.hue = hueVal;
+        if (hexVal.value.length >= 8) {
+          const rgba = hex8ToRgba(hexVal.value);
+          if (rgba) {
+            selectItem.a = Math.round(rgba.a * 100);
+            opacity.value = selectItem.a;
+          }
+        } else {
+          selectItem.a = 100;
+          opacity.value = 100;
+        }
+        setToChangeVariebles(val.r, val.g, val.b, selectItem.hue, true);
+        setGradientBarColor();
+        setOpacityBarColor();
+      }
+    }
+  };
+
+  /* @ts-ignore */
+  if (window.EyeDropper) {
+    isEyeDropperUsing.value = true;
   }
-};
 
-/* @ts-ignore */
-if (window.EyeDropper) {
-  isEyeDropperUsing.value = true;
-}
+  const parseVModelString = (value = "") => {
+    if (PickerMode.value == "gradient") {
+      let type = value.includes("linear") ? "linear" : "radial";
+      let newColorList = [];
 
-const parseVModelString = (value = "") => {
+      gradientType.value = type;
+      if (type == "linear") {
+        let regexPattern = /^linear-gradient\((.*)\)$/;
+        let matches = value.replace(";", "").trim().match(regexPattern);
+        let parsValueRGX = /,\s*(?![^()]*\))/;
 
+        if (matches) {
+          let valueList = matches[1].split(parsValueRGX);
 
+          for (let i = 0; i < valueList.length; i++) {
+            const element = valueList[i];
 
-  if (PickerMode.value == "gradient") {
-    let type = value
-      ? value.includes("linear-gradient")
-        ? "linear"
-        : "radial"
-      : props.gradientMode;
-    let newColorList = [];
+            let colorObj = {
+              id: i,
+              r: 0,
+              g: 0,
+              b: 0,
+              a: 100,
+              percent: 100,
+              hue: 0,
+              select: false,
+            };
 
-    gradientType.value = type as GradientMode;
-    if (type == "linear") {
-      let regexPattern = /^linear-gradient\((.*)\)$/;
-      let matches = value.replace(";", "").trim().match(regexPattern);
-      let parsValueRGX = /,\s*(?![^()]*\))/;
+            if (element.includes("deg")) {
+              gradientAngle.angle = parseInt(element.replace("deg", ""));
+            } else if (element.includes("rgba")) {
+              let colorVal = element
+                .trim()
+                .replace(/rgba|\(|\)|%/g, "")
+                .replace(/,/g, " ")
+                .split(" ");
 
-      if (!value.includes("deg")) gradientAngle.angle = 180;
+              colorVal = colorVal.filter((x: string) => x.trim() !== "");
 
-      if (matches) {
-        let valueList = matches[1].split(parsValueRGX);
+              colorObj.r = parseInt(colorVal[0]);
+              colorObj.g = parseInt(colorVal[1]);
+              colorObj.b = parseInt(colorVal[2]);
+              colorObj.a = parseFloat(colorVal[3]) * 100;
+              colorObj.percent = parseInt(colorVal[4]);
 
-        for (let i = 0; i < valueList.length; i++) {
-          const element = valueList[i];
+              newColorList.push(colorObj);
+            } else if (element.includes("rgb")) {
+              let colorVal = element
+                .trim()
+                .replace(/rgb|\(|\)|%/g, "")
+                .replace(/,/g, " ")
+                .split(" ");
 
-          let colorObj = {
-            id: i,
-            r: 0,
-            g: 0,
-            b: 0,
-            a: 100,
-            percent: 100,
-            hue: 0,
-            select: false,
-          };
+              colorVal = colorVal.filter((x) => x.trim() !== "");
 
-          if (element.includes("deg")) {
-            gradientAngle.angle = parseInt(element.replace("deg", ""));
-          } else if (element.includes("rgba")) {
-            let colorVal = element
-              .trim()
-              .replace(/rgba|\(|\)|%/g, "")
-              .replace(/,/g, " ")
-              .split(" ");
+              colorObj.r = parseInt(colorVal[0]);
+              colorObj.g = parseInt(colorVal[1]);
+              colorObj.b = parseInt(colorVal[2]);
+              colorObj.percent = parseInt(colorVal[3]);
 
-            colorVal = colorVal.filter((x: string) => x.trim() !== "");
-
-            colorObj.r = parseInt(colorVal[0]);
-            colorObj.g = parseInt(colorVal[1]);
-            colorObj.b = parseInt(colorVal[2]);
-            colorObj.a = parseFloat(colorVal[3]) * 100;
-            colorObj.percent = parseInt(colorVal[4]);
-
-            newColorList.push(colorObj);
-          } else if (element.includes("rgb")) {
-            let colorVal = element
-              .trim()
-              .replace(/rgb|\(|\)|%/g, "")
-              .replace(/,/g, " ")
-              .split(" ");
-
-            colorVal = colorVal.filter((x) => x.trim() !== "");
-
-            colorObj.r = parseInt(colorVal[0]);
-            colorObj.g = parseInt(colorVal[1]);
-            colorObj.b = parseInt(colorVal[2]);
-            colorObj.percent = parseInt(colorVal[3]);
-
-            newColorList.push(colorObj);
+              newColorList.push(colorObj);
+            }
           }
         }
+      } else {
+        let regexPattern = /^radial-gradient\((.*)\)$/;
+        let matches = value.replace(";", "").trim().match(regexPattern);
+        let parsValueRGX = /,\s*(?![^()]*\))/;
+
+        if (matches) {
+          let valueList = matches[1].split(parsValueRGX);
+
+          for (let i = 0; i < valueList.length; i++) {
+            const element = valueList[i];
+
+            let colorObj = {
+              id: i,
+              r: 0,
+              g: 0,
+              b: 0,
+              a: 100,
+              percent: 100,
+              hue: 0,
+              select: false,
+            };
+            if (element.includes("circle at")) {
+              let angleXY = element
+                .replace("circle at ", "")
+                .replace(" ", "")
+                .replace(/%/g, " ")
+                .trim()
+                .split(" ");
+              gradientAngle.percentageX = parseInt(angleXY[0]);
+              gradientAngle.percentageY = parseInt(angleXY[1]);
+            } else if (element.includes("rgba")) {
+              let colorVal = element
+                .replace(/rgba|\(|\)|%/g, "")
+                .replace(/,/g, " ")
+                .split(" ");
+
+              colorVal = colorVal.filter((x) => x.trim() !== "");
+
+              colorObj.r = parseInt(colorVal[0]);
+              colorObj.g = parseInt(colorVal[1]);
+              colorObj.b = parseInt(colorVal[2]);
+              colorObj.a = parseFloat(colorVal[3]) * 100;
+              colorObj.percent = parseInt(colorVal[4]);
+
+              newColorList.push(colorObj);
+            } else if (element.includes("rgb")) {
+              let colorVal = element
+                .replace(/rgb|\(|\)|%/g, "")
+                .replace(/,/g, " ")
+                .split(" ");
+
+              colorVal = colorVal.filter((x) => x.trim() !== "");
+
+              colorObj.r = parseInt(colorVal[0]);
+              colorObj.g = parseInt(colorVal[1]);
+              colorObj.b = parseInt(colorVal[2]);
+              colorObj.percent = parseInt(colorVal[3]);
+
+              newColorList.push(colorObj);
+            }
+          }
+        }
+      }
+
+      if (newColorList.length > 1) {
+        colorList.value = newColorList;
+        colorList.value[0].select = true;
+        opacity.value = colorList.value[0].a;
       }
     } else {
-      let regexPattern = /^radial-gradient\((.*)\)$/;
-      let matches = value.replace(";", "").trim().match(regexPattern);
-      let parsValueRGX = /,\s*(?![^()]*\))/;
-
-      if (matches) {
-        let valueList = matches[1].split(parsValueRGX);
-
-        for (let i = 0; i < valueList.length; i++) {
-          const element = valueList[i];
-
-          let colorObj = {
-            id: i,
-            r: 0,
-            g: 0,
-            b: 0,
-            a: 100,
-            percent: 100,
-            hue: 0,
-            select: false,
-          };
-          if (element.includes("circle at")) {
-            let angleXY = element
-              .replace("circle at ", "")
-              .replace(" ", "")
-              .replace(/%/g, " ")
-              .trim()
-              .split(" ");
-            gradientAngle.percentageX = parseInt(angleXY[0]);
-            gradientAngle.percentageY = parseInt(angleXY[1]);
-          } else if (element.includes("rgba")) {
-            let colorVal = element
-              .replace(/rgba|\(|\)|%/g, "")
-              .replace(/,/g, " ")
-              .split(" ");
-
-            colorVal = colorVal.filter((x) => x.trim() !== "");
-
-            colorObj.r = parseInt(colorVal[0]);
-            colorObj.g = parseInt(colorVal[1]);
-            colorObj.b = parseInt(colorVal[2]);
-            colorObj.a = parseFloat(colorVal[3]) * 100;
-            colorObj.percent = parseInt(colorVal[4]);
-
-            newColorList.push(colorObj);
-          } else if (element.includes("rgb")) {
-            let colorVal = element
-              .replace(/rgb|\(|\)|%/g, "")
-              .replace(/,/g, " ")
-              .split(" ");
-
-            colorVal = colorVal.filter((x) => x.trim() !== "");
-
-            colorObj.r = parseInt(colorVal[0]);
-            colorObj.g = parseInt(colorVal[1]);
-            colorObj.b = parseInt(colorVal[2]);
-            colorObj.percent = parseInt(colorVal[3]);
-
-            newColorList.push(colorObj);
-          }
-        }
-      }
-    }
-
-    if (newColorList.length > 1) {
-      colorList.value = newColorList;
-      colorList.value[0].select = true;
-      opacity.value = colorList.value[0].a;
-    }
-  } else {
-    if (value) {
-      let color: RGBA | null = {
-        r: 0,
-        g: 0,
-        b: 0,
-        a: 0,
-      };
-      if (value.includes("#")) {
-        if (value.length >= 8) {
-          // Color Code HEX8
-          color = hex8ToRgba(value);
-        } else {
-          // Color Code HEX
-          let _v = hexToRgb(value);
-          if (_v) {
-            color.a = 1;
-            color.r = _v.r;
-            color.g = _v.g;
-            color.b = _v.b;
+      if (value) {
+        let color: RGBA | null = {
+          r: 0,
+          g: 0,
+          b: 0,
+          a: 0,
+        };
+        if (value.includes("#")) {
+          if (value.length >= 8) {
+            // Color Code HEX8
+            color = hex8ToRgba(value);
           } else {
-            color = null;
+            // Color Code HEX
+            let _v = hexToRgb(value);
+            if (_v) {
+              color.a = 1;
+              color.r = _v.r;
+              color.g = _v.g;
+              color.b = _v.b;
+            } else {
+              color = null;
+            }
           }
-        }
-      } else if (value.includes("rgb")) {
-        if (value.includes("rgba")) {
-          // Color Code RGBA
-          color = parseRgba(value);
-        } else {
-          // Color Code RGB
-          let result = parseRgb(value);
-
-          if (result) {
-            color.a = 1;
-            color.r = result.r;
-            color.g = result.g;
-            color.b = result.b;
+        } else if (value.includes("rgb")) {
+          if (value.includes("rgba")) {
+            // Color Code RGBA
+            color = parseRgba(value);
           } else {
-            color = null;
+            // Color Code RGB
+            let result = parseRgb(value);
+
+            if (result) {
+              color.a = 1;
+              color.r = result.r;
+              color.g = result.g;
+              color.b = result.b;
+            } else {
+              color = null;
+            }
           }
         }
-      }
 
-      if (color) {
-        colorList.value[0].r = color.r;
-        colorList.value[0].b = color.b;
-        colorList.value[0].g = color.g;
-        colorList.value[0].a = parseInt((color.a * 100).toFixed(0));
-        opacity.value = colorList.value[0].a;
-        colorList.value[0].hue = 0;
+        if (color) {
+          colorList.value[0].r = color.r;
+          colorList.value[0].b = color.b;
+          colorList.value[0].g = color.g;
+          colorList.value[0].a = parseInt((color.a * 100).toFixed(0));
+          opacity.value = colorList.value[0].a;
+          colorList.value[0].hue = 0;
+        }
       }
     }
-  }
-};
+  };
 
-const handleChangeInputType = (event: InputType) => {
-  const selectColor = colorList.value.find((color) => color.select == true);
+  const handleChangeInputType = (event: InputType) => {
+    const selectColor = colorList.value.find((color) => color.select == true);
 
-  if (selectColor) {
-    switch (event) {
-      case "RGB":
-        break;
+    if (selectColor) {
+      switch (event) {
+        case "RGB":
+          break;
 
-      case "HSL": {
-        const { h, s, l } = rgbToHsl(
-          selectColor.r,
-          selectColor.g,
-          selectColor.b
-        );
-        HSL.h = Math.round(h);
-        HSL.s = Math.round(s * 100);
-        HSL.l = Math.round(l * 100);
-        break;
-      }
-      case "HSV": {
-        const { h, s, v } = rgbToHsv(
-          selectColor.r,
-          selectColor.g,
-          selectColor.b
-        );
-        HSV.h = Math.round(h);
-        HSV.s = Math.round(s * 100);
-        HSV.v = Math.round(v * 100);
-        break;
-      }
-      case "CMYK":
-        {
-          const { c, m, y, k } = rgbToCmyk(
+        case "HSL": {
+          const { h, s, l } = rgbToHsl(
             selectColor.r,
             selectColor.g,
             selectColor.b
           );
-          CMYK.c = Math.round(c * 100);
-          CMYK.m = Math.round(m * 100);
-          CMYK.y = Math.round(y * 100);
-          CMYK.k = Math.round(k * 100);
+          HSL.h = Math.round(h);
+          HSL.s = Math.round(s * 100);
+          HSL.l = Math.round(l * 100);
+          break;
         }
-        break;
+        case "HSV": {
+          const { h, s, v } = rgbToHsv(
+            selectColor.r,
+            selectColor.g,
+            selectColor.b
+          );
+          HSV.h = Math.round(h);
+          HSV.s = Math.round(s * 100);
+          HSV.v = Math.round(v * 100);
+          break;
+        }
+        case "CMYK":
+          {
+            const { c, m, y, k } = rgbToCmyk(
+              selectColor.r,
+              selectColor.g,
+              selectColor.b
+            );
+            CMYK.c = Math.round(c * 100);
+            CMYK.m = Math.round(m * 100);
+            CMYK.y = Math.round(y * 100);
+            CMYK.k = Math.round(k * 100);
+          }
+          break;
+      }
+      inputType.value = event;
     }
-    inputType.value = event;
-  }
-};
+  };
 
-const handleChangePickerMode = (event: Mode) => {
-  PickerMode.value = event;
+  const handleChangePickerMode = (event: Mode) => {
+    PickerMode.value = event;
 
-  setTimeout(() => {
-    if (PickerMode.value == "gradient") {
-      gradientMouseBar = pickerTemplateRef.value?.querySelector(
-        ".gradient-bar"
-      ) as HTMLElement;
+    setTimeout(() => {
+      if (PickerMode.value == "gradient") {
+        gradientMouseBar = pickerTemplateRef.value?.querySelector(
+          ".gradient-bar"
+        ) as HTMLElement;
+      }
+      applyValue(props.modelValue);
+      handleChangeInputType(inputType.value);
+    }, 0);
+  };
+  const handleCopyValue = async () => {
+    try {
+      await navigator.clipboard.writeText(props.modelValue);
+      isCopy.value = true;
+    } catch (err) {
+      console.error("copy error: ", err);
     }
+  };
 
-    applyValue(props.modelValue as string);
-    handleChangeInputType(inputType.value);
-  }, 0);
-};
-
-const applyValue = (value: string) => {
-  if (!value) {
-    setFirstEmptyValue();
-  } else {
-    parseVModelString(value);
-    setFirstEmptyValue();
-  }
-};
-
-const handleSave = () => {
-  emittedValue.value = localValue.value;
-  emits("update:modelValue", emittedValue.value as string);
-  emits("onSave", emittedValue.value as string)
-};
-
-const clearGradient = () => {
-  colorList.value.forEach((item: Record<string, any>) => {
-    const deleteElement = gradientMouseBar?.querySelector(`#clr-gb-${item.id}`);
-    deleteElement?.remove();
-  });
-};
-
-const handleCancel = () => {
-  localValue.value = emittedValue.value;
-  clearGradient();
-  applyValue(localValue.value as string);
-  emits("onCancel", localValue.value as string)
-};
-
-watch(
-  () => props.modelValue as string,
-  (newValue: string, oldValue: string) => {
-    if (newValue !== oldValue && newValue !== emittedValue.value) {
-      clearGradient();
-      applyValue(newValue);
-    }
-  }
-);
-
-const validateModeByValue = (value?: string | null) => {
-  if (value) {
-    if (value.includes("linear-gradient") || value.includes("radial-gradient")) {
-      PickerMode.value = "gradient";
+  const applyValue = (value: string) => {
+    if (!value) {
+      setFirstEmptyValue(true);
     } else {
-      PickerMode.value = "solid";
+      parseVModelString(value);
+      setFirstEmptyValue();
     }
-  }
-};
+  };
 
-validateModeByValue(props.modelValue);
-onMounted(() => {
-  nextTick(() => {
+  watch(
+    () => props.modelValue,
+    (newValue: string, oldValue: string) => {
+      if (newValue !== oldValue && newValue !== emittedValue.value) {
+        colorList.value.forEach((item: Record<string, any>) => {
+          const deleteElement = gradientMouseBar?.querySelector(
+            `#clr-gb-${item.id}`
+          );
+          deleteElement?.remove();
+        });
+        applyValue(newValue);
+      }
+    }
+  );
+
+  onMounted(() => {
     if (PickerMode.value == "gradient") {
       gradientMouseBar = pickerTemplateRef.value?.querySelector(
         ".gradient-bar"
       ) as HTMLElement;
     }
-    applyValue(props.modelValue as string);
+    applyValue(props.modelValue);
     handleChangeInputType(inputType.value);
     isReady.value = true;
-  })
-});
+  });
 </script>
 
 <style lang="scss">
-:root {
-  --cp-gray-100: #f9f9f9;
-  --cp-gray-200: #f1f1f4;
-  --cp-gray-300: #dbdfe9;
-  --cp-gray-400: #c4cada;
-  --cp-gray-500: #99a1b7;
-  --cp-gray-600: #78829d;
-  --cp-gray-700: #4b5675;
-  --cp-gray-800: #252f4a;
-  --cp-gray-900: #071437;
-  --cp-inverse-dark: #57575723;
-  --cp-inverse-white: #9292920d;
-  --cp-container-bg: #fff;
-  --cp-primary: #5983fc;
-  --cp-select-color: #2c5ae6af;
-  --cp-range-border: #f7f7f7;
-  --cp-range-shadow: #4c86f3;
-  --cp-container-shadow: #58585881;
-  --padding: 0px 10px;
-  --margin-top: 10px;
-}
+  :root {
+    --cp-gray-100: #f9f9f9;
+    --cp-gray-200: #f1f1f4;
+    --cp-gray-300: #dbdfe9;
+    --cp-gray-400: #c4cada;
+    --cp-gray-500: #99a1b7;
+    --cp-gray-600: #78829d;
+    --cp-gray-700: #4b5675;
+    --cp-gray-800: #252f4a;
+    --cp-gray-900: #071437;
+    --cp-inverse-dark: #57575723;
+    --cp-inverse-white: #9292920d;
+    --cp-container-bg: #fff;
+    --cp-primary: #5983fc;
+    --cp-select-color: #2c5ae6af;
+    --cp-range-border: #f7f7f7;
+    --cp-range-shadow: #4c86f3;
+    --cp-container-shadow: #58585881;
+    --padding: 0px 10px;
+    --margin-top: 10px;
+  }
 
-.ck-cp-container[cp-theme="dark"] {
-  --cp-gray-100: #1b1c22;
-  --cp-gray-200: #26272f;
-  --cp-gray-300: #363843;
-  --cp-gray-400: #464852;
-  --cp-gray-500: #636674;
-  --cp-gray-600: #808290;
-  --cp-gray-700: #9a9cae;
-  --cp-gray-800: #b5b7c8;
-  --cp-gray-900: #f5f5f5;
-  --cp-inverse-dark: #6b6b6b56;
-  --cp-inverse-white: #92929256;
-  --cp-container-bg: #131314;
-  --cp-container-shadow: #2b262696;
-}
+  .ck-cp-container[cp-theme="dark"] {
+    --cp-gray-100: #1b1c22;
+    --cp-gray-200: #26272f;
+    --cp-gray-300: #363843;
+    --cp-gray-400: #464852;
+    --cp-gray-500: #636674;
+    --cp-gray-600: #808290;
+    --cp-gray-700: #9a9cae;
+    --cp-gray-800: #b5b7c8;
+    --cp-gray-900: #f5f5f5;
+    --cp-inverse-dark: #6b6b6b56;
+    --cp-inverse-white: #92929256;
+    --cp-container-bg: #131314;
+    --cp-container-shadow: #2b262696;
+  }
 
-.ck-cp-container {
-  left: 0;
-  background-color: var(--cp-container-bg);
-  border-radius: 0.5rem;
-  padding: 0px;
-  width: 270px;
-  height: auto;
-  box-shadow: 0px 0px 34px 1px var(--cp-container-shadow);
-  padding-bottom: calc(var(--margin-top) * 1.5);
-  padding-top: var(--margin-top);
-}
+  .ck-cp-container {
+    left: 0;
+    background-color: var(--cp-container-bg);
+    border-radius: 0.5rem;
+    padding: 0px;
+    width: 270px;
+    height: auto;
+    box-shadow: 0px 0px 34px 1px var(--cp-container-shadow);
+    padding-bottom: calc(var(--margin-top) * 1.5);
+    padding-top: var(--margin-top);
+  }
 
-.ck-cp-container * {
-  outline: none;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  user-select: none;
-}
+  .ck-cp-container * {
+    outline: none;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    user-select: none;
+  }
 
-.ck-cp-controller-bar {
-  // height: 35px;
-  // background-color: #f1f1f1;
-  // margin-top: 0.5rem;
-  border-radius: 0.475rem;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
+  .ck-cp-controller-bar {
+    // height: 35px;
+    // background-color: #f1f1f1;
+    // margin-top: 0.5rem;
+    border-radius: 0.475rem;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
 
-.ck-cp-menu {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--padding);
-}
+  .ck-cp-menu {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--padding);
+  }
 
-.cp-btn {
-  border: 0;
-  height: 30px !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  border-radius: 5px;
-  padding: 0px;
-  background-color: var(--cp-container-bg);
-  color: var(--cp-gray-700);
-}
+  .cp-btn {
+    border: 0;
+    height: 30px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    border-radius: 5px;
+    padding: 0px;
+    background-color: var(--cp-container-bg);
+    color: var(--cp-gray-700);
+  }
+  .cp-btn svg {
+    fill: var(--cp-gray-700);
+  }
 
-.cp-btn svg {
-  fill: var(--cp-gray-700);
-}
+  .cp-picker-wrap {
+    height: 145px;
+    position: relative;
+    overflow: hidden;
+    margin: var(--padding);
+  }
 
-.cp-picker-wrap {
-  height: 145px;
-  position: relative;
-  overflow: hidden;
-  margin: var(--padding);
-}
+  .picker-saturation {
+    cursor: auto;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
 
-.picker-saturation {
-  cursor: auto;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-}
+  .colour-area-point-circle {
+    pointer-events: none;
+    cursor: pointer;
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    box-shadow: 0 0 0 1.5px var(--cp-container-bg),
+      inset 0 0 1px 1px var(--cp-gray-900), 0 0 1px 2px var(--cp-gray-900);
+    border-radius: 50%;
+  }
 
-.colour-area-point-circle {
-  pointer-events: none;
-  cursor: pointer;
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  box-shadow: 0 0 0 1.5px var(--cp-container-bg),
-    inset 0 0 1px 1px var(--cp-gray-900), 0 0 1px 2px var(--cp-gray-900);
-  border-radius: 50%;
-}
+  .colour-area-mask {
+    border-radius: 0.5rem;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    box-shadow: inset rgba(0, 0, 0, 0.075) 0 0 0 1px;
+  }
 
-.colour-area-mask {
-  border-radius: 0.5rem;
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  top: 0;
-  left: 0;
-  box-shadow: inset rgba(0, 0, 0, 0.075) 0 0 0 1px;
-}
+  .colour-area {
+    width: 100%;
+    height: 100%;
+    border-radius: 0.5rem;
+  }
 
-.colour-area {
-  width: 100%;
-  height: 100%;
-  border-radius: 0.5rem;
-}
+  .picker-hue {
+    width: 100%;
+    height: 8px;
+  }
 
-.picker-hue {
-  width: 100%;
-  height: 8px;
-}
-
-.picker-hue-range-slider {
-  margin: 0;
-  border-radius: 10px;
-  position: relative;
-  z-index: 1;
-  appearance: none;
-  height: 100%;
-  width: 100%;
-  display: block;
-  outline: none;
-  transition: color 0.05s linear;
-  background: linear-gradient(to right,
+  .picker-hue-range-slider {
+    margin: 0;
+    border-radius: 10px;
+    position: relative;
+    z-index: 1;
+    appearance: none;
+    height: 100%;
+    width: 100%;
+    display: block;
+    outline: none;
+    transition: color 0.05s linear;
+    background: linear-gradient(
+      to right,
       #ff0000 0%,
       #ffff00 17%,
       #00ff00 33%,
       #00ffff 50%,
       #0000ff 67%,
       #ff00ff 83%,
-      #ff0000 100%);
+      #ff0000 100%
+    );
 
-  &:focus {
-    outline: none;
-  }
+    &:focus {
+      outline: none;
+    }
 
-  &:active,
-  &:hover:active {
-    cursor: grabbing;
-    cursor: -webkit-grabbing;
-  }
+    &:active,
+    &:hover:active {
+      cursor: grabbing;
+      cursor: -webkit-grabbing;
+    }
 
-  &::-moz-range-track {
-    appearance: none;
-    opacity: 0;
-    outline: none;
-  }
+    &::-moz-range-track {
+      appearance: none;
+      opacity: 0;
+      outline: none;
+    }
 
-  &::-ms-track {
-    outline: none;
-    appearance: none;
-    opacity: 0;
-  }
+    &::-ms-track {
+      outline: none;
+      appearance: none;
+      opacity: 0;
+    }
 
-  &::-webkit-slider-thumb {
-    box-shadow: 0px -0px 6px 0px var(--cp-range-shadow);
-    border: 1px solid var(--cp-range-border);
-    background-color: var(--cp-primary);
-    height: 14px;
-    width: 14px;
-    border-radius: 50%;
-    appearance: none;
-    cursor: pointer;
-    cursor: move;
-    cursor: grab;
-    cursor: -webkit-grab;
-  }
-
-  &::-moz-range-thumb {
-    box-shadow: 0px -0px 6px 0px var(--cp-range-shadow);
-    border: 1px solid var(--cp-range-border);
-    background-color: var(--cp-primary);
-    height: 14px;
-    width: 14px;
-    border-radius: 50%;
-    appearance: none;
-    cursor: pointer;
-    cursor: move;
-    cursor: grab;
-    cursor: -webkit-grab;
-  }
-}
-
-.picker-opacity-slider {
-  top: 0px;
-  position: absolute;
-  left: 0;
-  width: 100%;
-  height: 8px;
-}
-
-.opacity_slider {
-  margin: 0;
-  border-radius: 16px;
-  position: relative;
-  z-index: 1;
-  appearance: none;
-  height: 8px;
-  width: 100%;
-  display: block;
-  outline: none;
-  transition: color 0.05s linear;
-
-  &:focus {
-    outline: none;
-  }
-
-  &:active,
-  &:hover:active {
-    cursor: grabbing;
-    cursor: -webkit-grabbing;
-  }
-
-  &::-moz-range-track {
-    appearance: none;
-    opacity: 0;
-    outline: none;
-  }
-
-  &::-ms-track {
-    outline: none;
-    appearance: none;
-    opacity: 0;
-  }
-
-  &::-webkit-slider-thumb {
-    box-shadow: 0px -0px 6px 0px var(--cp-range-shadow);
-    border: 1px solid var(--cp-range-border);
-    background-color: var(--cp-primary);
-    height: 14px;
-    width: 14px;
-    border-radius: 50%;
-    appearance: none;
-    cursor: pointer;
-    cursor: move;
-    cursor: grab;
-    cursor: -webkit-grab;
-  }
-
-  &::-moz-range-thumb {
-    box-shadow: 0px -0px 6px 0px var(--cp-range-shadow);
-    border: 1px solid var(--cp-range-border);
-    background-color: var(--cp-primary);
-    height: 14px;
-    width: 14px;
-    border-radius: 50%;
-    appearance: none;
-    cursor: pointer;
-    cursor: move;
-    cursor: grab;
-    cursor: -webkit-grab;
-  }
-}
-
-.gradient-bar {
-  width: 100%;
-  position: relative;
-  box-sizing: border-box;
-}
-
-.gradient-container {
-  width: 100%;
-  height: 8px;
-  border-radius: 10px;
-}
-
-.gradient-handle {
-  position: absolute;
-  z-index: 1;
-  top: -3px;
-  outline: none;
-}
-
-.gradient-handle .gradient-handle-content {
-  cursor: ew-resize;
-  display: flex;
-  box-sizing: border-box;
-  justify-content: center;
-  align-items: center;
-  box-shadow: 0px -0px 6px 0px var(--cp-range-shadow);
-  border: 1px solid var(--cp-range-border);
-  background-color: var(--cp-primary);
-  height: 14px;
-  width: 14px;
-  border-radius: 50%;
-}
-
-.gradient-handle.select .gradient-handle-content {
-  background-color: var(--cp-primary);
-  border: 2px solid var(--cp-range-border);
-}
-
-.gradient-handle.select {
-  z-index: 2;
-}
-
-.opacity-bar {
-  position: relative;
-  height: 8px;
-  overflow: visible;
-
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  background: linear-gradient(45deg,
-      var(--cp-inverse-dark) 25%,
-      transparent 25%,
-      transparent 75%,
-      var(--cp-inverse-dark) 75%,
-      var(--cp-inverse-dark) 0px) 0px 0px / 16px 16px repeat padding-box border-box,
-    linear-gradient(45deg,
-      var(--cp-inverse-dark) 25%,
-      transparent 25%,
-      transparent 75%,
-      var(--cp-inverse-dark) 75%,
-      var(--cp-inverse-dark) 0px) 8px 8px / 16px 16px repeat padding-box border-box,
-    var(--cp-inverse-white);
-}
-
-.ck-cp-linear-angle-container {
-  padding: var(--padding);
-  margin-bottom: calc(var(--margin-top) * 1.75);
-  // margin: 1rem 0 2rem 0;
-}
-
-.ck-cp-linear-angle-container input[type="range"] {
-  margin: 0;
-  border-radius: 10px;
-  z-index: 10;
-  appearance: none;
-  background-color: var(--cp-gray-200);
-  height: 8px;
-  width: 100%;
-  display: block;
-  outline: none;
-  transition: color 0.05s linear;
-
-  &:focus {
-    outline: none;
-  }
-
-  &:active,
-  &:hover:active {
-    cursor: grabbing;
-    cursor: -webkit-grabbing;
-  }
-
-  &::-moz-range-track {
-    appearance: none;
-    opacity: 0;
-    outline: none;
-  }
-
-  &::-ms-track {
-    outline: none;
-    appearance: none;
-    opacity: 0;
-  }
-
-  &::-webkit-slider-thumb {
-    box-shadow: 0px -0px 6px 0px var(--cp-range-shadow);
-    border: 1px solid var(--cp-range-border);
-    background-color: var(--cp-primary);
-    height: 14px;
-    width: 14px;
-    border-radius: 50%;
-    appearance: none;
-    cursor: pointer;
-    cursor: move;
-    cursor: grab;
-    cursor: -webkit-grab;
-  }
-
-  &::-moz-range-thumb {
-    box-shadow: 0px -0px 6px 0px var(--cp-range-shadow);
-    border: 1px solid var(--cp-range-border);
-    background-color: var(--cp-primary);
-    height: 14px;
-    width: 14px;
-    border-radius: 50%;
-    appearance: none;
-    cursor: pointer;
-    cursor: move;
-    cursor: grab;
-    cursor: -webkit-grab;
-  }
-}
-
-.ck-cp-linear-angle-container .ck-gradient-set-label {
-  text-align: start;
-  font-size: 12px;
-  color: var(--cp-gray-700);
-  margin: 0;
-  margin-top: var(--margin-top);
-  margin-bottom: calc(var(--margin-top) / 2);
-}
-
-.ck-cp-linear-angle-container .ck-gradient-set-label span {
-  color: var(--cp-primary);
-  font-weight: 700;
-}
-
-.ck-cp-linear-angle-container p span::before {
-  content: "→ ";
-}
-
-.ck-cp-input-container {
-  display: flex;
-  gap: 8px;
-  margin: 0 10px;
-
-  margin-top: calc(var(--margin-top) * 2.5);
-}
-
-.ck-cp-input-container input {
-  background-color: var(--cp-container-bg);
-  border: 1px solid var(--cp-gray-300);
-  color: var(--cp-gray-900);
-  border-radius: 5px;
-}
-
-.ck-cp-input-container input[type="text"] {
-  padding: 0;
-  width: 100%;
-  text-align: center;
-  height: 30px;
-  flex-shrink: 0;
-  outline: none;
-  font-size: 14px;
-}
-
-.ck-cp-input-container input[type="number"] {
-  padding: 0;
-  appearance: textfield;
-  -moz-appearance: textfield;
-  -webkit-appearance: textfield;
-  border-radius: 5px;
-  text-align: center;
-  flex-shrink: 0;
-  outline: none;
-  height: 100%;
-  width: 100%;
-  font-size: 14px;
-}
-
-.ck-cp-input-container input:focus-visible {
-  border: 1px solid var(--cp-primary);
-}
-
-.ck-cp-input-container input[type="number"]::-webkit-inner-spin-button,
-.ck-cp-input-container input[type="number"]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  display: none;
-  margin: 0;
-}
-
-.ck-cp-input-container .ck-cp-input-content:not(.color-hex) {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  min-width: 34px;
-  height: 30px;
-}
-
-.ck-cp-input-container .color-hex {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-}
-
-.ck-cp-input-container .ck-cp-input-content .ck-cp-input-label {
-  position: absolute;
-  background-color: var(--cp-container-bg);
-  font-size: 10px;
-  top: -6px;
-  left: -6px;
-  color: var(--cp-gray-700);
-  padding: 0 4px;
-  z-index: 1;
-}
-
-.ck-cp-local-color-conatiner {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 0px 10px 0px 10px;
-  border-top: 1px solid var(--cp-gray-200);
-
-  padding-top: calc(var(--margin-top) * 1.25);
-  margin-top: calc(var(--margin-top) * 2);
-}
-
-.ck-cp-local-color-conatiner .ck-cp-color-item {
-  cursor: pointer;
-  width: 25px;
-  height: 25px;
-  border: 1px solid transparent;
-  box-sizing: border-box;
-  border-radius: 5px;
-}
-
-.ck-cp-local-color-conatiner .ck-cp-color-item.ck-select {
-  border: 2px solid var(--cp-select-color);
-}
-
-.ck-cp-disabled * {
-  pointer-events: none !important;
-  opacity: 0.75;
-}
-
-.cp-main-btn {
-  border: 0;
-  height: 20px !important;
-  width: 20px !important;
-  display: flex;
-  align-items: center;
-  font-size: 14px;
-  background-color: var(--cp-container-bg);
-  padding: 0;
-  justify-content: center;
-}
-
-.cp-main-btn svg {
-  transform: scale(0.9, 0.9);
-  fill: var(--cp-gray-700);
-}
-
-.cp-btn-save-color {
-  background-color: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  width: 25px;
-  height: 25px;
-  border: 1px solid var(--cp-gray-500);
-  border-radius: 5px;
-}
-
-.cp-btn-save-color svg {
-  fill: var(--cp-gray-700);
-}
-
-.ck-cp-color-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-}
-
-.ck-cp-color-list-label {
-  font-size: 12px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--cp-gray-700);
-}
-
-.ck-cp-color-list-label svg {
-  fill: var(--cp-gray-700);
-}
-
-.ck-cp-buttons {
-  padding: 20px 10px 0;
-  display: flex;
-  flex-direction: row;
-  justify-content: flex-end;
-  column-gap: 4px;
-
-  &__button {
-    font-size: 12px;
-    padding: 5px 15px;
-    background-color: var(--cp-container-bg);
-    border: none;
-    color: var(--cp-gray-800);
-    border-radius: 5px;
-
-    &:hover {
+    &::-webkit-slider-thumb {
+      box-shadow: 0px -0px 6px 0px var(--cp-range-shadow);
+      border: 1px solid var(--cp-range-border);
+      background-color: var(--cp-primary);
+      height: 14px;
+      width: 14px;
+      border-radius: 50%;
+      appearance: none;
       cursor: pointer;
-      background-color: var(--cp-gray-100);
+      cursor: move;
+      cursor: grab;
+      cursor: -webkit-grab;
     }
 
-    &:active {
-      background-color: var(--cp-gray-100);
+    &::-moz-range-thumb {
+      box-shadow: 0px -0px 6px 0px var(--cp-range-shadow);
+      border: 1px solid var(--cp-range-border);
+      background-color: var(--cp-primary);
+      height: 14px;
+      width: 14px;
+      border-radius: 50%;
+      appearance: none;
+      cursor: pointer;
+      cursor: move;
+      cursor: grab;
+      cursor: -webkit-grab;
     }
   }
-}
+
+  .picker-opacity-slider {
+    top: 0px;
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 8px;
+  }
+
+  .opacity_slider {
+    margin: 0;
+    border-radius: 16px;
+    position: relative;
+    z-index: 1;
+    appearance: none;
+    height: 8px;
+    width: 100%;
+    display: block;
+    outline: none;
+    transition: color 0.05s linear;
+
+    &:focus {
+      outline: none;
+    }
+
+    &:active,
+    &:hover:active {
+      cursor: grabbing;
+      cursor: -webkit-grabbing;
+    }
+
+    &::-moz-range-track {
+      appearance: none;
+      opacity: 0;
+      outline: none;
+    }
+
+    &::-ms-track {
+      outline: none;
+      appearance: none;
+      opacity: 0;
+    }
+
+    &::-webkit-slider-thumb {
+      box-shadow: 0px -0px 6px 0px var(--cp-range-shadow);
+      border: 1px solid var(--cp-range-border);
+      background-color: var(--cp-primary);
+      height: 14px;
+      width: 14px;
+      border-radius: 50%;
+      appearance: none;
+      cursor: pointer;
+      cursor: move;
+      cursor: grab;
+      cursor: -webkit-grab;
+    }
+
+    &::-moz-range-thumb {
+      box-shadow: 0px -0px 6px 0px var(--cp-range-shadow);
+      border: 1px solid var(--cp-range-border);
+      background-color: var(--cp-primary);
+      height: 14px;
+      width: 14px;
+      border-radius: 50%;
+      appearance: none;
+      cursor: pointer;
+      cursor: move;
+      cursor: grab;
+      cursor: -webkit-grab;
+    }
+  }
+
+  .gradient-bar {
+    width: 100%;
+    position: relative;
+    box-sizing: border-box;
+  }
+
+  .gradient-container {
+    width: 100%;
+    height: 8px;
+    border-radius: 10px;
+  }
+
+  .gradient-handle {
+    position: absolute;
+    z-index: 1;
+    top: -3px;
+    outline: none;
+  }
+
+  .gradient-handle .gradient-handle-content {
+    cursor: ew-resize;
+    display: flex;
+    box-sizing: border-box;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0px -0px 6px 0px var(--cp-range-shadow);
+    border: 1px solid var(--cp-range-border);
+    background-color: var(--cp-primary);
+    height: 14px;
+    width: 14px;
+    border-radius: 50%;
+  }
+
+  .gradient-handle.select .gradient-handle-content {
+    background-color: var(--cp-primary);
+    border: 2px solid var(--cp-range-border);
+  }
+
+  .gradient-handle.select {
+    z-index: 2;
+  }
+
+  .opacity-bar {
+    position: relative;
+    height: 8px;
+    overflow: visible;
+
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    background: linear-gradient(
+          45deg,
+          var(--cp-inverse-dark) 25%,
+          transparent 25%,
+          transparent 75%,
+          var(--cp-inverse-dark) 75%,
+          var(--cp-inverse-dark) 0px
+        )
+        0px 0px / 16px 16px repeat padding-box border-box,
+      linear-gradient(
+          45deg,
+          var(--cp-inverse-dark) 25%,
+          transparent 25%,
+          transparent 75%,
+          var(--cp-inverse-dark) 75%,
+          var(--cp-inverse-dark) 0px
+        )
+        8px 8px / 16px 16px repeat padding-box border-box,
+      var(--cp-inverse-white);
+  }
+
+  .ck-cp-linear-angle-container {
+    padding: var(--padding);
+    margin-bottom: calc(var(--margin-top) * 1.75);
+    // margin: 1rem 0 2rem 0;
+  }
+
+  .ck-cp-linear-angle-container input[type="range"] {
+    margin: 0;
+    border-radius: 10px;
+    z-index: 10;
+    appearance: none;
+    background-color: var(--cp-gray-200);
+    height: 8px;
+    width: 100%;
+    display: block;
+    outline: none;
+    transition: color 0.05s linear;
+
+    &:focus {
+      outline: none;
+    }
+
+    &:active,
+    &:hover:active {
+      cursor: grabbing;
+      cursor: -webkit-grabbing;
+    }
+
+    &::-moz-range-track {
+      appearance: none;
+      opacity: 0;
+      outline: none;
+    }
+
+    &::-ms-track {
+      outline: none;
+      appearance: none;
+      opacity: 0;
+    }
+
+    &::-webkit-slider-thumb {
+      box-shadow: 0px -0px 6px 0px var(--cp-range-shadow);
+      border: 1px solid var(--cp-range-border);
+      background-color: var(--cp-primary);
+      height: 14px;
+      width: 14px;
+      border-radius: 50%;
+      appearance: none;
+      cursor: pointer;
+      cursor: move;
+      cursor: grab;
+      cursor: -webkit-grab;
+    }
+
+    &::-moz-range-thumb {
+      box-shadow: 0px -0px 6px 0px var(--cp-range-shadow);
+      border: 1px solid var(--cp-range-border);
+      background-color: var(--cp-primary);
+      height: 14px;
+      width: 14px;
+      border-radius: 50%;
+      appearance: none;
+      cursor: pointer;
+      cursor: move;
+      cursor: grab;
+      cursor: -webkit-grab;
+    }
+  }
+
+  .ck-cp-linear-angle-container .ck-gradient-set-label {
+    text-align: start;
+    font-size: 12px;
+    color: var(--cp-gray-700);
+    margin: 0;
+    margin-top: var(--margin-top);
+    margin-bottom: calc(var(--margin-top) / 2);
+  }
+
+  .ck-cp-linear-angle-container .ck-gradient-set-label span {
+    color: var(--cp-primary);
+    font-weight: 700;
+  }
+
+  .ck-cp-linear-angle-container p span::before {
+    content: "→ ";
+  }
+
+  .ck-cp-input-container {
+    display: flex;
+    gap: 8px;
+    margin: 0 10px;
+
+    margin-top: calc(var(--margin-top) * 2.5);
+  }
+
+  .ck-cp-input-container input {
+    background-color: var(--cp-container-bg);
+    border: 1px solid var(--cp-gray-300);
+    color: var(--cp-gray-900);
+    border-radius: 5px;
+  }
+
+  .ck-cp-input-container input[type="text"] {
+    padding: 0;
+    width: 100%;
+    text-align: center;
+    height: 30px;
+    flex-shrink: 0;
+    outline: none;
+    font-size: 14px;
+  }
+
+  .ck-cp-input-container input[type="number"] {
+    padding: 0;
+    appearance: textfield;
+    -moz-appearance: textfield;
+    -webkit-appearance: textfield;
+    border-radius: 5px;
+    text-align: center;
+    flex-shrink: 0;
+    outline: none;
+    height: 100%;
+    width: 100%;
+    font-size: 14px;
+  }
+
+  .ck-cp-input-container input:focus-visible {
+    border: 1px solid var(--cp-primary);
+  }
+
+  .ck-cp-input-container input[type="number"]::-webkit-inner-spin-button,
+  .ck-cp-input-container input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    display: none;
+    margin: 0;
+  }
+
+  .ck-cp-input-container .ck-cp-input-content:not(.color-hex) {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 34px;
+    height: 30px;
+  }
+
+  .ck-cp-input-container .color-hex {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .ck-cp-input-container .ck-cp-input-content .ck-cp-input-label {
+    position: absolute;
+    background-color: var(--cp-container-bg);
+    font-size: 10px;
+    top: -6px;
+    left: -6px;
+    color: var(--cp-gray-700);
+    padding: 0 4px;
+    z-index: 1;
+  }
+  .ck-cp-local-color-conatiner {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0px 10px 0px 10px;
+    border-top: 1px solid var(--cp-gray-200);
+    padding-top: calc(var(--margin-top) * 1.25);
+    margin-top: calc(var(--margin-top) * 1);
+    &.intrinsic {
+      padding-top: calc(var(--margin-top) * 1);
+      margin-top: calc(var(--margin-top) * 1);
+    }
+  }
+  .ck-cp-local-color-conatiner .ck-cp-color-bg {
+    cursor: pointer;
+    width: 25px;
+    height: 25px;
+    box-sizing: border-box;
+    border-radius: 5px;
+    background-color: transparent;
+    background-image: linear-gradient(
+        45deg,
+        #c5c5c5 25%,
+        transparent 0,
+        transparent 75%,
+        #c5c5c5 0,
+        #c5c5c5
+      ),
+      linear-gradient(
+        45deg,
+        #c5c5c5 25%,
+        transparent 0,
+        transparent 75%,
+        #c5c5c5 0,
+        #c5c5c5
+      );
+    background-size: 6px 6px;
+    background-position: 0 0, 3px 3px;
+  }
+
+  .ck-cp-local-color-conatiner .ck-cp-color-item {
+    cursor: pointer;
+    width: 25px;
+    height: 25px;
+    border: 1px solid transparent;
+    box-sizing: border-box;
+    border-radius: 5px;
+  }
+
+  .ck-cp-local-color-conatiner .ck-cp-color-item.ck-select {
+    border: 2px solid var(--cp-select-color);
+  }
+
+  .ck-cp-disabled * {
+    pointer-events: none !important;
+    opacity: 0.75;
+  }
+
+  .cp-main-btn {
+    border: 0;
+    height: 20px !important;
+    width: 20px !important;
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    background-color: var(--cp-container-bg);
+    padding: 0;
+    justify-content: center;
+  }
+  .cp-main-btn svg {
+    transform: scale(0.9, 0.9);
+    fill: var(--cp-gray-700);
+  }
+
+  .cp-btn-save-color {
+    background-color: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    width: 25px;
+    height: 25px;
+    border: 1px solid var(--cp-gray-500);
+    border-radius: 5px;
+  }
+
+  .cp-btn-save-color svg {
+    fill: var(--cp-gray-700);
+  }
+
+  .ck-cp-color-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .ck-cp-color-list-label {
+    font-size: 12px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--cp-gray-700);
+  }
+
+  .ck-cp-color-list-label svg {
+    fill: var(--cp-gray-700);
+  }
+  .ck-cp-sketch-color-wrap {
+    width: 34px;
+    height: 34px;
+    position: relative;
+    border-radius: 50%;
+    overflow: hidden;
+    cursor: pointer;
+    .ck-cp-sketch-active-color {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15),
+        inset 0 0 4px rgba(0, 0, 0, 0.25);
+      z-index: 2;
+    }
+    .ck-cp-checkerboard {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      background-size: auto;
+    }
+    .copy-icon {
+      display: none;
+      position: absolute;
+      padding: 9px 0 0 9px;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 2;
+    }
+    &:hover .copy-icon {
+      display: block;
+      background: rgba(255, 255, 255, 0.5);
+    }
+  }
 </style>
