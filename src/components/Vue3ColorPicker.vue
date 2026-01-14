@@ -170,7 +170,7 @@
       :hex-val="hexVal"
       @color-item-click="handleColorItemOnClick"
       :iconClasses="iconClasses"
-      :title="local.colorPalate"
+      :title="local.colorPalette"
     />
   </div>
 </template>
@@ -247,7 +247,7 @@
         gradient: "",
         linear: "",
         radial: "",
-        colorPalate: "",
+        colorPalette: "",
       },
       type: Object as () => Local,
     },
@@ -535,7 +535,7 @@
   let gradientMouseBar: HTMLElement | null = null;
   let selectedGradientItem: HTMLElement | null = null;
 
-  const handleGradientItemOnMouseDown = (event: MouseEvent) => {
+  const handleGradientItemOnMouseDown = (event: MouseEvent | TouchEvent) => {
     const target = event.target as HTMLElement;
     const offsetParent = target.offsetParent as HTMLElement | null;
     if (offsetParent?.id?.includes("clr-gb-")) {
@@ -614,10 +614,11 @@
     }
   };
 
-  const addColor = (e: MouseEvent) => {
+  const addColor = (e: MouseEvent | TouchEvent) => {
     const client = gradientMouseBar?.getBoundingClientRect();
+    const clientX = e instanceof MouseEvent ? e.clientX : e.touches[0].clientX;
     const percent = Math.round(
-      ((e.clientX - (client?.left || 0)) / (client?.width || 1)) * 100
+      ((clientX - (client?.left || 0)) / (client?.width || 1)) * 100
     );
 
     const selectIndex = colorList.value.findIndex(

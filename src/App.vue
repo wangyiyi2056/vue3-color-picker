@@ -52,7 +52,7 @@
       gradient: '渐变',
       linear: '线性',
       radial: '径向',
-      colorPalate: '调色板',
+      colorPalette: '调色板',
     }"
   />
 </template>
